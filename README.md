@@ -2,7 +2,16 @@
 
 A lightweight, real-time logging app for amateur radio contests. Designed for use on a local network with up to 5 operators. No authentication or internet connection required.
 
+The software is only required to run the server
+
+Clients use a normal web browser
 ---
+
+Make sure to install the server-side packages (Express, SQLite, Socket.IO):
+
+
+1. Make sure you have [Node.js](https://nodejs.org) installed (which includes `npm`)
+
 
 ## 🚀 Features
 
@@ -26,6 +35,10 @@ A lightweight, real-time logging app for amateur radio contests. Designed for us
 
 ---
 
+
+
+
+
 ## 🛠️ Setup Instructions
 
 1. **Clone the repo:**
@@ -33,7 +46,7 @@ A lightweight, real-time logging app for amateur radio contests. Designed for us
 git clone https://github.com/mshurmer/radio-contest.git
 cd radio-contest
 
-2. Install dependencies:
+2. Install dependencies: This installs all required backend packages listed in package.json.
 npm install
 
 3. Start the server:
