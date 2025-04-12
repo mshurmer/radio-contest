@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Radio Contest Logger</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <h1>Radio Contest Logger</h1>
+
+    <form id="qsoForm" class="form-horizontal">
+
+        <div class="form-col">
+            <label for="callsign">Callsign</label><br>
+            <input type="text" id="callsign" size="15" placeholder="">
+        </div>
+
+        <div class="form-col">
+            <label for="band">Band</label><br>
+            <select id="band">
+                <option value="">-- Band --</option>
+                <option>160m</option>
+                <option>80m</option>
+                <option>40m</option>
+                <option>20m</option>
+                <option>15m</option>
+                <option>10m</option>
+                <option>23cm</option>
+            </select><br><br>
+
+            <label for="mode">Mode</label><br>
+            <select id="mode">
+                <option value="">-- Mode --</option>
+                <option>SSB</option>
+                <option>CW</option>
+                <option>RTTY</option>
+            </select>
+        </div>
+
+        <div class="form-col">
+            <label>Reports</label>
+            <div class="inline-inputs">
+                <div>
+                    <label for="sentReport">Sent</label><br>
+                    <input type="text" id="sentReport" placeholder="e.g. 59123" size="6">
+                </div>
+                <div>
+                    <label for="rxReport">Received</label><br>
+                    <input type="text" id="rxReport" placeholder="" size="6">
+                </div>
+            </div>
+        </div>
+
+        <div class="form-col">
+            <label for="comments">Comments</label><br>
+            <textarea id="comments" rows="3" cols="25" placeholder="Name or notes..."></textarea><br><br>
+            <label>
+                <input type="checkbox" id="nonContest"> Non-contest
+            </label>
+        </div>
+
+        <div class="form-col">
+            <button type="button" id="clearEntry">Clear Entry</button>
+            <button type="submit" style="margin-top: 24px;">Log QSO</button>
+        </div>
+        <div id="userStatus" style="padding: 10px; border: 1px solid #ccc; background: #f9f9f9; font-size: 0.9em;"></div>
+
+    </form>
+    <div style="margin-bottom: 1rem;">
+        <button id="resetFilters">Clear Filters</button>
+    </div>
+    
+    
+    <hr>
+
+    <h2>Logged Contacts</h2>
+    <table id="qsoTable">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Callsign</th>
+                <th>Band</th>
+                <th>Mode</th>
+                <th>Points</th>
+                <th>Sent</th>
+                <th>Received</th>
+                <th>Comments</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <h2>Admin Panel</h2>
+    <div id="adminPanel">
+        <label>
+            Set Years Licensed:
+            <input type="number" id="adminYearsLicensed" min="0" max="999">
+        </label>
+        <button id="saveYearsBtn">Save</button>
+        <span id="adminStatus" style="margin-left: 10px;"></span>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

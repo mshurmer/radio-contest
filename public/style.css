@@ -1,0 +1,83 @@
+body {
+  font-family: Arial, sans-serif;
+  padding: 20px;
+}
+
+form {
+  margin-bottom: 20px;
+}
+
+input, select, button {
+  margin: 5px 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 8px;
+  border: 1px solid #ccc;
+}
+.popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.popup-content {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
+
+.qso-invalid {
+    background-color: #ffe5e5 !important;
+    border-left: 4px solid red;
+}
+.non-contest-row {
+    background-color: #f3f3f3;
+    font-style: italic;
+    color: #555;
+}
+
+.form-horizontal {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.form-col {
+    display: flex;
+    flex-direction: column;
+    min-width: 140px;
+}
+
+    .form-col input,
+    .form-col select,
+    .form-col textarea {
+        font-size: 1em;
+        padding: 6px;
+        margin-top: 4px;
+    }
+.inline-inputs {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+}
+
+    .inline-inputs label {
+        font-size: 0.85em;
+    }
