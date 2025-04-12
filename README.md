@@ -30,8 +30,8 @@ A lightweight, real-time logging app for amateur radio contests. Designed for us
 
 1. **Clone the repo:**
 
-git clone https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
-cd YOUR_REPO_NAME
+git clone https://github.com/mshurmer/radio-contest.git
+cd radio-contest
 
 2. Install dependencies:
 npm install
