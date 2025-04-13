@@ -1,4 +1,7 @@
-﻿const express = require('express');
+﻿// ==============================
+// 📦 Imports & Setup
+// ==============================
+const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
@@ -7,22 +10,28 @@ const { Server } = require('socket.io');
 const { validateQSO } = require('./rules');
 const clientStatuses = {}; // socket.id => { band, mode }
 
-
+// ==============================
+// ⚙️ App Config
+// ==============================
 // Setup Express + HTTP + Socket.IO
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 const PORT = 3000;
+const ADMIN_PASSWORD = '9100943'; // ✅ Change this to your actual password
 
 // Middleware
+// Serve static frontend files
 app.use(cors());
 app.use(express.json());
-
-// Serve static frontend files
 app.use(express.static(path.join(__dirname, '../public')));
 
+// ==============================
+// 🗃️ SQLite Database
+// ==============================
 // SQLite setup creat the table
 const db = new sqlite3.Database(path.join(__dirname, '../db/contest.db'));
+
 db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS qsos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -110,12 +119,26 @@ app.post('/log', (req, res) => {
 });
 
 // Get all QSOs
-app.get('/log', (req, res) => {
-    db.all('SELECT * FROM qsos ORDER BY time DESC', [], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
+
+
+app.post('/admin/clearLog', express.json(), (req, res) => {
+    const { password } = req.body;
+
+    if (password !== ADMIN_PASSWORD) {
+        return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    db.run('DELETE FROM qsos', function (err) {
+        if (err) {
+            console.error('Error clearing log:', err);
+            return res.status(500).json({ success: false });
+        }
+
+        io.emit('newQSO', {}); // notify clients to refresh if needed
+        res.json({ success: true });
     });
 });
+
 
 // delete
 app.delete('/log/:id', (req, res) => {
@@ -189,6 +212,19 @@ app.post('/admin/yearsLicensed', (req, res) => {
         }
     );
 });
+
+// Get all QSOs
+app.get('/log', (req, res) => {
+    db.all('SELECT * FROM qsos ORDER BY time DESC', (err, rows) => {
+        if (err) {
+            console.error('DB Fetch Error:', err.message);
+            return res.status(500).json({ success: false });
+        }
+        res.json(rows); // ✅ Even if empty, this returns []
+    });
+});
+
+
 
 app.get('/admin/yearsLicensed', (req, res) => {
     db.get(`SELECT value FROM settings WHERE key = 'yearsLicensed'`, [], (err, row) => {

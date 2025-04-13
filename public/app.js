@@ -71,6 +71,32 @@ function sendStatusUpdate() {
 document.getElementById('band').addEventListener('change', sendStatusUpdate);
 document.getElementById('mode').addEventListener('change', sendStatusUpdate);
 
+document.getElementById('clearLogBtn').addEventListener('click', async () => {
+    const confirmClear = confirm('⚠️ Are you sure you want to delete all QSOs? This cannot be undone.');
+    if (!confirmClear) return;
+
+    const password = prompt('Enter admin password:');
+    if (!password) return;
+
+    const res = await fetch('/admin/clearLog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+        alert('QSO log cleared!');
+        loadContacts();
+    } else {
+        alert('❌ Failed to clear log: ' + (data.message || 'Unknown error'));
+    }
+});
+
+
+
+
 socket.on('userStatusUpdate', (statusMap) => {
     const userStatusDiv = document.getElementById('userStatus');
     userStatusDiv.innerHTML = '<strong>Operators on Air:</strong><br>';
