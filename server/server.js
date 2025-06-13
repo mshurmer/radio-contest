@@ -65,10 +65,11 @@ io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
 
     // Listen for status updates from a client
-    socket.on('statusUpdate', ({ band, mode }) => {
-        clientStatuses[socket.id] = { band, mode };
+    socket.on('statusUpdate', ({ band, mode, name }) => {
+        clientStatuses[socket.id] = { band, mode, name };
         io.emit('userStatusUpdate', clientStatuses);
     });
+
 
     // Handle disconnect
     socket.on('disconnect', () => {
@@ -77,6 +78,15 @@ io.on('connection', (socket) => {
         io.emit('userStatusUpdate', clientStatuses);
     });
 });
+
+function requirePassword(req, res, next) {
+    const { password } = req.body;
+    if (password !== ADMIN_PASSWORD) {
+        return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+    next();
+}
+
 
 // Log a new QSO
 app.post('/log', (req, res) => {
@@ -89,6 +99,11 @@ app.post('/log', (req, res) => {
         if (!valid) {
             return res.json({ success: false, message });
         }
+
+        const actualPoints = parseInt(isNonContest) === 1 ? 0 : points;
+
+        console.log('Inserting QSO with points:', actualPoints, 'isNonContest:', isNonContest);
+
 
         db.run(
             `INSERT INTO qsos (callsign, band, mode, time, points, sentReport, rxReport, comments,isNonContest)
@@ -133,13 +148,7 @@ app.post('/log', (req, res) => {
 // Get all QSOs
 
 
-app.post('/admin/clearLog', express.json(), (req, res) => {
-    const { password } = req.body;
-
-    if (password !== ADMIN_PASSWORD) {
-        return res.status(403).json({ success: false, message: 'Unauthorized' });
-    }
-
+app.post('/admin/clearLog', express.json(), requirePassword, (req, res) => {
     db.run('DELETE FROM qsos', function (err) {
         if (err) {
             console.error('Error clearing log:', err);
@@ -150,6 +159,7 @@ app.post('/admin/clearLog', express.json(), (req, res) => {
         res.json({ success: true });
     });
 });
+
 
 
 // delete
@@ -179,16 +189,16 @@ app.put('/log/:id', (req, res) => {
 
         db.run(
             `UPDATE qsos SET 
-        callsign = ?, 
-        band = ?, 
-        mode = ?, 
-        sentReport = ?, 
-        rxReport = ?, 
-        points = ?, 
-        time = ?, 
-        isNonContest = ?,
-        comments = ?
-       WHERE id = ?`,
+                callsign = ?, 
+                band = ?, 
+                mode = ?, 
+                sentReport = ?, 
+                rxReport = ?, 
+                points = ?, 
+                time = ?, 
+                isNonContest = ?,
+                comments = ?
+            WHERE id = ?`,
             [callsign, band, mode, sentReport, rxReport, points, originalTime, isNonContest, comments, id],
             function (err) {
                 if (err) {
@@ -204,26 +214,42 @@ app.put('/log/:id', (req, res) => {
 
 
 
-app.post('/admin/yearsLicensed', (req, res) => {
+
+app.post('/admin/yearsLicensed', express.json(), requirePassword, (req, res) => {
     const value = req.body.value;
 
     if (typeof value !== 'number' || value < 0 || value > 999) {
         return res.status(400).json({ success: false, message: 'Invalid number' });
     }
 
-    db.run(
-        `INSERT INTO settings (key, value) VALUES ('yearsLicensed', ?) 
-     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-        [value.toString()],
-        (err) => {
-            if (err) {
-                console.error('Failed to update settings:', err.message);
-                return res.status(500).json({ success: false });
-            }
-            res.json({ success: true });
+    db.get(`SELECT value FROM settings WHERE key = 'yearsLicensed'`, [], (err, row) => {
+        if (err) {
+            console.error('Failed to read settings:', err.message);
+            return res.status(500).json({ success: false });
         }
-    );
+
+        if (row) {
+            // Update existing value
+            db.run(`UPDATE settings SET value = ? WHERE key = 'yearsLicensed'`, [value.toString()], (err2) => {
+                if (err2) {
+                    console.error('Failed to update setting:', err2.message);
+                    return res.status(500).json({ success: false });
+                }
+                res.json({ success: true });
+            });
+        } else {
+            // Insert new value
+            db.run(`INSERT INTO settings (key, value) VALUES ('yearsLicensed', ?)`, [value.toString()], (err2) => {
+                if (err2) {
+                    console.error('Failed to insert setting:', err2.message);
+                    return res.status(500).json({ success: false });
+                }
+                res.json({ success: true });
+            });
+        }
+    });
 });
+
 
 // Get all QSOs
 app.get('/log', (req, res) => {
