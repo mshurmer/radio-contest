@@ -1,6 +1,7 @@
 ﻿// ==============================
 // 📦 Imports & Setup
 // ==============================
+const fs = require('fs');
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -111,6 +112,17 @@ app.post('/log', (req, res) => {
                     comments,
                     isNonContest
                 });
+
+                appendToBackupFile({
+                    callsign,
+                    band,
+                    mode,
+                    sentReport,
+                    rxReport,
+                    comments,
+                    isNonContest
+                });
+
 
                 return res.json({ success: true });
             }
@@ -245,6 +257,36 @@ function calculatePoints(band, mode, time) {
     if (hour >= 1 && hour < 6) points *= 3;
     return points;
 }
+
+function appendToBackupFile(qso) {
+    const backupDir = path.join(__dirname, '../backups');
+    if (!fs.existsSync(backupDir)) {
+        fs.mkdirSync(backupDir, { recursive: true });
+    }
+
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const filename = `qso_log_${dateStr}.txt`;
+    const filePath = path.join(backupDir, filename);
+
+    const logLine = [
+        new Date().toISOString(),
+        qso.callsign,
+        qso.band,
+        qso.mode,
+        qso.sentReport,
+        qso.rxReport,
+        `"${qso.comments || ''}"`,
+        qso.isNonContest ? 1 : 0
+    ].join(', ') + '\n';
+
+    fs.appendFile(filePath, logLine, (err) => {
+        if (err) {
+            console.error('⚠️ Failed to write to backup file:', err.message);
+        }
+    });
+}
+
+
 
 // Start the server
 server.listen(PORT, '0.0.0.0', () => {
