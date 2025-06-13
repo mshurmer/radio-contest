@@ -44,9 +44,11 @@ Make sure to install the server-side packages (Express, SQLite, Socket.IO):
 1. **Clone the repo:**
 
 git clone https://github.com/mshurmer/radio-contest.git
+
 cd radio-contest
 
 2. Install dependencies: This installs all required backend packages listed in package.json.
+
 npm install
 
 3. Start the server:
