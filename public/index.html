@@ -2,147 +2,152 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Contest Logger</title>
-  <link rel="stylesheet" href="/css/bootstrap.min.css"/>
-  <style>
-    body {
-      padding: 2rem;
-      background: #f7f7f7;
-    }
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Contest Logger</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css" />
+    <style>
+        body {
+            padding: 2rem;
+            background: #f7f7f7;
+        }
 
-    .flash-success {
-      background-color: #d4edda !important;
-      transition: background-color 0.6s ease;
-    }
+        .flash-success {
+            background-color: #d4edda !important;
+            transition: background-color 0.6s ease;
+        }
 
-    .non-contest-row {
-      background-color: #fce4ec;
-    }
+        .non-contest-row {
+            background-color: #fce4ec;
+        }
 
-    .qso-invalid {
-      background-color: #fff3cd;
-    }
+        .qso-invalid {
+            background-color: #fff3cd;
+        }
 
-    .btn-group button {
-      margin-right: 5px;
-    }
-  </style>
+        .btn-group button {
+            margin-right: 5px;
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <h1 class="mb-4">📻 Contest Logger</h1>
+    <div class="container">
+        <h1 class="mb-4">📻 Contest Logger</h1>
 
-    <form id="qsoForm" class="border p-3 bg-white shadow-sm rounded">
-        <input type="hidden" id="qsoId" />
+        <form id="qsoForm" class="border p-3 bg-white shadow-sm rounded">
+            <input type="hidden" id="qsoId" />
 
-        <div class="mb-3">
-            <label for="operatorName" class="form-label">Your Name (optional)</label>
-            <input type="text" id="operatorName" class="form-control" placeholder="e.g. Anthony." />
-        </div>
-
-        <div class="row mb-3">
-            <div class="col">
-                <label for="band" class="form-label">Band</label>
-                <select id="band" class="form-select" required>
-                    <option>160m</option>
-                    <option>80m</option>
-                    <option selected>40m</option>
-                    <option>20m</option>
-                    <option>15m</option>
-                    <option>10m</option>
-                    <option>23cm</option>
-                </select>
-            </div>
-            <div class="col">
-                <label for="mode" class="form-label">Mode</label>
-                <select id="mode" class="form-select" required>
-                    <option selected>SSB</option>
-                    <option>CW</option>
-                    <option>RTTY</option>
-                </select>
-            </div>
-            <div class="col d-flex flex-column justify-content-end">
-
-                <div id="userStatus" class="text-muted small" style="min-width: 200px;"></div>
+            <div class="mb-3">
+                <label for="operatorName" class="form-label">Your Name (optional)</label>
+                <input type="text" id="operatorName" class="form-control" placeholder="e.g. Anthony." />
             </div>
 
-        </div>
+            <div class="row mb-3">
+                <div class="col">
+                    <label for="band" class="form-label">Band</label>
+                    <select id="band" class="form-select" required>
+                        <option>160m</option>
+                        <option>80m</option>
+                        <option selected>40m</option>
+                        <option>20m</option>
+                        <option>15m</option>
+                        <option>10m</option>
+                        <option>23cm</option>
+                    </select>
+                </div>
+                <div class="col">
+                    <label for="mode" class="form-label">Mode</label>
+                    <select id="mode" class="form-select" required>
+                        <option selected>SSB</option>
+                        <option>CW</option>
+                        <option>RTTY</option>
+                    </select>
+                </div>
+                <div class="col d-flex flex-column justify-content-end">
 
-        <div class="mb-3">
-            <label for="callsign" class="form-label">Callsign</label>
-            <input type="text" id="callsign" class="form-control" required tabindex="1" />
-        </div>
+                    <div id="userStatus" class="text-muted small" style="min-width: 200px;"></div>
+                </div>
 
-        <div class="mb-3">
-            <label for="rxReport" class="form-label">Received Report</label>
-            <input type="text" id="rxReport" class="form-control" required tabindex="2" />
-        </div>
-
-        <div class="mb-3">
-            <label for="sentReport" class="form-label">Sent Report</label>
-            <input type="text" id="sentReport" class="form-control" required tabindex="3" />
-        </div>
-
-
-        <div class="mb-3">
-            <label for="comments" class="form-label">Comments (optional)</label>
-            <textarea id="comments" class="form-control" rows="2" tabindex="-1"></textarea>
-        </div>
-
-        <div class="d-flex justify-content-between">
-            <div>
-                <button type="submit" class="btn btn-primary" id="logBtn" tabindex="3">Log QSO</button>
-                <button type="button" class="btn btn-outline-secondary" id="clearEntry">Clear</button>
-                <button type="button" class="btn btn-warning" id="logNonContestBtn">Log Non-Contest QSO</button>
             </div>
-            <div>
-                <button type="button" class="btn btn-danger" id="clearLogBtn">Clear All Logs</button>
+
+            <div class="mb-3">
+                <label for="callsign" class="form-label">Callsign</label>
+                <input type="text" id="callsign" class="form-control" required tabindex="1" />
             </div>
+
+            <div class="mb-3">
+                <label for="rxReport" class="form-label">Received Report</label>
+                <input type="text" id="rxReport" class="form-control" required tabindex="2" />
+            </div>
+
+            <div class="mb-3">
+                <label for="sentReport" class="form-label">Sent Report</label>
+                <input type="text" id="sentReport" class="form-control" required tabindex="3" />
+            </div>
+
+
+            <div class="mb-3">
+                <label for="comments" class="form-label">Comments (optional)</label>
+                <textarea id="comments" class="form-control" rows="2" tabindex="-1"></textarea>
+            </div>
+
+            <div class="d-flex justify-content-between">
+                <div>
+                    <button type="submit" class="btn btn-primary" id="logBtn" tabindex="3">Log QSO</button>
+                    <button type="button" class="btn btn-outline-secondary" id="clearEntry">Clear</button>
+                    <button type="button" class="btn btn-warning" id="logNonContestBtn">Log Non-Contest QSO</button>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-danger" id="clearLogBtn">Clear All Logs</button>
+                </div>
+            </div>
+        </form>
+
+        <hr class="my-4" />
+
+        <div class="mb-3">
+            <label for="adminYearsLicensed" class="form-label">Years Licensed</label>
+            <div class="input-group">
+                <input type="number" id="adminYearsLicensed" class="form-control" min="0" max="999" />
+                <button class="btn btn-success" id="saveYearsBtn">Save</button>
+            </div>
+            <div id="adminStatus" class="mt-1 text-muted small"></div>
         </div>
-    </form>
 
-    <hr class="my-4"/>
+        <hr />
 
-    <div class="mb-3">
-      <label for="adminYearsLicensed" class="form-label">Years Licensed</label>
-      <div class="input-group">
-        <input type="number" id="adminYearsLicensed" class="form-control" min="0" max="999"/>
-        <button class="btn btn-success" id="saveYearsBtn">Save</button>
-      </div>
-      <div id="adminStatus" class="mt-1 text-muted small"></div>
+
+        <h4>Logged QSOs</h4>
+        <table class="table table-striped" id="qsoTable">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Callsign</th>
+                    <th>Band</th>
+                    <th>Mode</th>
+                    <th>Points</th>
+                    <th>Sent</th>
+                    <th>Received</th>
+                    <th>Comments</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Populated by app.js -->
+            </tbody>
+        </table>
+
+        <div class="mt-3">
+            <button class="btn btn-outline-secondary" id="resetFilters">Reset Filters</button>
+        </div>
     </div>
 
-    <hr/>
-
-
-    <h4>Logged QSOs</h4>
-    <table class="table table-striped" id="qsoTable">
-      <thead>
-        <tr>
-          <th>Time</th>
-          <th>Callsign</th>
-          <th>Band</th>
-          <th>Mode</th>
-          <th>Points</th>
-          <th>Sent</th>
-          <th>Received</th>
-          <th>Comments</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <!-- Populated by app.js -->
-      </tbody>
-    </table>
-
-    <div class="mt-3">
-      <button class="btn btn-outline-secondary" id="resetFilters">Reset Filters</button>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js"></script>
+    <div style="position: fixed; bottom: 10px; right: 10px; z-index: 1000;">
+        <a href="/admin.html" style="font-size: 0.9em; text-decoration: none;">🔧 Admin</a>
     </div>
-  </div>
-
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="app.js"></script>
 </body>
+
+
 </html>

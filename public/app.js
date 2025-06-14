@@ -2,7 +2,11 @@
 // ---------------------- Helper Functions First ----------------------
 const clearLogBtn = document.getElementById('clearLogBtn');
 const socket = io();
-let operatorName = localStorage.getItem('operatorName') || '';
+let operatorName = localStorage.getItem('operatorName');
+if (!operatorName) {
+    operatorName = 'Guest';
+    localStorage.setItem('operatorName', operatorName);
+}
 let isLoggingNonContest = false;
 let isNonContestMode = false;
 
@@ -148,14 +152,23 @@ async function loadContacts() {
 
 window.addEventListener('DOMContentLoaded', () => {
     loadContacts();
-    document.getElementById('callsign').focus();
     loadLicenseYears(); // ✅ This is the key line
-    document.getElementById('callsign').focus();
+
+    document.getElementById('callsign').focus(); 
+    document.getElementById('operatorName').value = operatorName;
+    document.getElementById('callsign').addEventListener('input', applyCallsignFilter);
+
+    sendStatusUpdate();
+
+  
     document.getElementById('operatorName').addEventListener('input', () => {
         operatorName = document.getElementById('operatorName').value.trim();
         localStorage.setItem('operatorName', operatorName);
-    sendStatusUpdate();
-});
+        sendStatusUpdate();
+    });
+document.getElementById('band').addEventListener('change', sendStatusUpdate);
+document.getElementById('mode').addEventListener('change', sendStatusUpdate);
+
 });
 
 document.getElementById('logNonContestBtn').addEventListener('click', () => {
@@ -178,8 +191,7 @@ function sendStatusUpdate() {
     socket.emit('statusUpdate', { band, mode, name:operatorName });
 }
 
-document.getElementById('band').addEventListener('change', sendStatusUpdate);
-document.getElementById('mode').addEventListener('change', sendStatusUpdate);
+
 
 
 

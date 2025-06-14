@@ -1,6 +1,7 @@
 ﻿// ==============================
 // 📦 Imports & Setup
 // ==============================
+require('dotenv').config();
 const fs = require('fs');
 const express = require('express');
 const cors = require('cors');
@@ -10,6 +11,28 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { validateQSO } = require('./rules');
 const clientStatuses = {}; // socket.id => { band, mode }
+
+
+
+
+// this is about page security
+const auth = require('basic-auth');
+
+const USERS = {
+    'log': 'secret123', // 🔐 change username and password as needed
+};
+
+function requireAuth(req, res, next) {
+    const user = auth(req);
+    if (!user || USERS[user.name] !== user.pass) {
+        res.set('WWW-Authenticate', 'Basic realm="QSO Logger"');
+        return res.status(401).send('Authentication required.');
+    }
+    next();
+}
+
+
+
 
 // ==============================
 // ⚙️ App Config
@@ -25,6 +48,19 @@ const ADMIN_PASSWORD = '9100943'; // ✅ Change this to your actual password
 // Serve static frontend files
 app.use(cors());
 app.use(express.json());
+
+//protect the page
+const USE_AUTH = process.env.REQUIRE_LOGIN === 'true';
+console.log('🔐 REQUIRE_LOGIN is:', process.env.REQUIRE_LOGIN);
+console.log('🔐 USE_AUTH is:', USE_AUTH);
+
+
+if (USE_AUTH) {
+    
+    app.use(requireAuth); // ✅ Protects all frontend pages
+    
+}
+
 app.use(express.static(path.join(__dirname, '../public')));
 
 // ==============================
