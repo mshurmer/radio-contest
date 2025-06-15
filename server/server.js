@@ -106,6 +106,30 @@ io.on('connection', (socket) => {
         io.emit('userStatusUpdate', clientStatuses);
     });
 
+    socket.on('setBand', (band) => {
+        // Save the band for this user
+        clientStatuses[socket.id] = {
+            ...(clientStatuses[socket.id] || {}),
+            band
+        };
+
+        // Check if anyone else is using the same band
+        const sameBandUser = Object.entries(clientStatuses).find(([id, status]) =>
+            id !== socket.id && status.band === band
+        );
+
+        if (sameBandUser) {
+            socket.emit('bandWarning', `⚠️ Another user is currently on ${band}`);
+        } else {
+            socket.emit('bandWarning', ''); // No warning
+        }
+
+        // Optional: keep updating all users with current statuses
+        io.emit('userStatusUpdate', clientStatuses);
+    });
+
+
+
 
     // Handle disconnect
     socket.on('disconnect', () => {
