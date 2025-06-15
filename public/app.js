@@ -31,13 +31,17 @@ function applyCallsignFilter() {
 async function loadContacts() {
     const tableBody = document.querySelector('#qsoTable tbody');
     try {
+        
         const res = await fetch('/log');
         const qsos = await res.json();
+        console.log('📥 Loaded QSOs:', qsos);
         tableBody.innerHTML = '';
         const now = new Date();
         const threeHoursMs = 3 * 60 * 60 * 1000;
         const selectedBand = document.getElementById('band').value;
         const selectedMode = document.getElementById('mode').value;
+
+        console.log('📥 Loaded QSOs:', qsos);
 
         qsos.forEach(qso => {
             const qsoTime = new Date(qso.time);
@@ -112,6 +116,12 @@ socket.on('bandWarning', (message) => {
     bandWarningDiv.textContent = message || '';
 });
 
+socket.on('newQSO', () => {
+    console.log('🔄 Received newQSO event, reloading table...');
+    loadContacts();
+});
+
+
 
 window.addEventListener('DOMContentLoaded', () => {
     loadContacts();
@@ -152,4 +162,109 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('callsign').focus();
         sendStatusUpdate();
     });
+
+    document.getElementById('qsoTable').addEventListener('click', async (e) => {
+        const row = e.target.closest('tr');  // ✅ Make sure this line is included first
+        if (!row) return;
+
+        const qsoId = row.getAttribute('data-id');
+
+        // 🗑️ Handle delete button
+        if (e.target.classList.contains('delete-btn')) {
+            const confirmed = confirm('🗑️ Are you sure you want to delete this QSO?');
+            if (!confirmed) return;
+
+            try {
+                const res = await fetch(`/log/${qsoId}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    row.remove();
+                } else {
+                    alert('❌ Failed to delete QSO: ' + (data.message || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('❌ Error deleting QSO: ' + err.message);
+            }
+        }
+
+        // ✏️ Handle edit button
+        if (e.target.classList.contains('edit-btn')) {
+            const callsign = row.cells[1].textContent;
+            const band = row.cells[2].textContent;
+            const mode = row.cells[3].textContent;
+            const sentReport = row.cells[5].textContent;
+            const rxReport = row.cells[6].textContent;
+            const comments = row.cells[7].textContent;
+
+            document.getElementById('callsign').value = callsign;
+            document.getElementById('band').value = band;
+            document.getElementById('mode').value = mode;
+            document.getElementById('sentReport').value = sentReport;
+            document.getElementById('rxReport').value = rxReport;
+            document.getElementById('comments').value = comments;
+            document.getElementById('qsoId').value = qsoId;
+        }
+    });
+
+    document.getElementById('qsoForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const qsoId = document.getElementById('qsoId').value;  // ← hidden field
+        const callsign = document.getElementById('callsign').value.trim();
+        const band = document.getElementById('band').value;
+        const mode = document.getElementById('mode').value;
+        const sentReport = document.getElementById('sentReport').value;
+        const rxReport = document.getElementById('rxReport').value;
+        const comments = document.getElementById('comments').value;
+        const isNonContest = isLoggingNonContest ? 1 : 0;
+
+        const qsoData = {
+            callsign,
+            band,
+            mode,
+            sentReport,
+            rxReport,
+            comments,
+            isNonContest
+        };
+
+        try {
+            let res;
+            if (qsoId) {
+                // Editing an existing QSO
+                res = await fetch(`/log/${qsoId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(qsoData)
+                });
+            } else {
+                // New QSO
+                res = await fetch('/log', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(qsoData)
+                });
+            }
+
+            const data = await res.json();
+            console.log('📨 Server responded:', data);
+
+            if (data.success) {
+                document.getElementById('qsoForm').reset();
+                document.getElementById('sentReport').value = `59${String(licenseYears).padStart(3, '0')}`;
+                document.getElementById('qsoId').value = ''; // Reset edit state
+                await loadContacts();
+                document.getElementById('callsign').focus();
+                isLoggingNonContest = false;
+            } else {
+                alert('❌ ' + data.message);
+            }
+        } catch (err) {
+            console.error('❌ Submit failed:', err);
+            alert('❌ Failed to save QSO');
+        }
+    });
+
+
+
 });

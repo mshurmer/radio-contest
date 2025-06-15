@@ -9,7 +9,7 @@ const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const http = require('http');
 const { Server } = require('socket.io');
-const { validateQSO } = require('./rules');
+const { validateQSO, calculatePoints } = require('./rules');
 const clientStatuses = {}; // socket.id => { band, mode }
 
 
@@ -155,7 +155,9 @@ app.post('/log', (req, res) => {
     const { callsign, band, mode, rxReport, sentReport, comments, isNonContest } = req.body;
 
 
-    validateQSO(callsign, band, mode, currentTime, db, (valid, points, message) => {
+    validateQSO(callsign, band, mode, currentTime,null, db, ({ valid, points, message }) => {
+        console.log('🔍 validateQSO result:', { valid, points, message });
+
         if (!valid) {
             return res.json({ success: false, message });
         }
@@ -187,6 +189,23 @@ app.post('/log', (req, res) => {
                     comments,
                     isNonContest
                 });
+
+                console.log('📝 Logging QSO to DB...');
+                console.log('📁 Attempting backup write...');
+
+                appendToBackupFile({
+                    callsign,
+                    band,
+                    mode,
+                    sentReport,
+                    rxReport,
+                    comments,
+                    isNonContest
+                });
+
+                console.log('✅ appendToBackupFile called');
+
+
 
                 appendToBackupFile({
                     callsign,
@@ -235,7 +254,9 @@ app.delete('/log/:id', (req, res) => {
 });
 
 app.put('/log/:id', (req, res) => {
-    const id = req.params.id;
+    const id = parseInt(req.params.id);
+    console.log('🛠 Editing QSO ID:', id);
+
     const { callsign, band, mode, sentReport, rxReport, isNonContest, comments } = req.body;
 
     db.get(`SELECT time FROM qsos WHERE id = ?`, [id], (err, row) => {
@@ -245,32 +266,45 @@ app.put('/log/:id', (req, res) => {
         }
 
         const originalTime = row.time;
-        const points = isNonContest ? 0 : calculatePoints(band, mode, new Date(originalTime));
+        const parsedTime = new Date(originalTime);
+        console.log('⚙️ validateQSO called with excludeId:', id);
 
-        db.run(
-            `UPDATE qsos SET 
-                callsign = ?, 
-                band = ?, 
-                mode = ?, 
-                sentReport = ?, 
-                rxReport = ?, 
-                points = ?, 
-                time = ?, 
-                isNonContest = ?,
-                comments = ?
-            WHERE id = ?`,
-            [callsign, band, mode, sentReport, rxReport, points, originalTime, isNonContest, comments, id],
-            function (err) {
-                if (err) {
-                    console.error('Update error:', err.message);
-                    return res.status(500).json({ success: false });
-                }
+        validateQSO(callsign, band, mode, parsedTime,id, db, ({ valid, points, message }) => {
+            console.log('🔍 validateQSO result:', { valid, points, message });
 
-                return res.json({ success: true });
+            if (!valid) {
+                return res.status(400).json({ success: false, message });
             }
-        );
+
+            const finalPoints = parseInt(isNonContest) === 1 ? 0 : points;
+
+            db.run(
+                `UPDATE qsos SET 
+                    callsign = ?, 
+                    band = ?, 
+                    mode = ?, 
+                    sentReport = ?, 
+                    rxReport = ?, 
+                    points = ?, 
+                    time = ?, 
+                    isNonContest = ?,
+                    comments = ?
+                WHERE id = ?`,
+                [callsign, band, mode, sentReport, rxReport, finalPoints, originalTime, isNonContest, comments, id],
+                function (err) {
+                    if (err) {
+                        console.error('Update error:', err.message);
+                        return res.status(500).json({ success: false });
+                    }
+
+                    res.json({ success: true });
+                }
+            );
+        }); 
     });
 });
+
+
 
 
 
@@ -336,13 +370,7 @@ app.get('/admin/yearsLicensed', (req, res) => {
 });
 
 
-function calculatePoints(band, mode, time) {
-    let points = (band === '160m' || band === '23cm') ? 2 : 1;
-    if (mode === 'CW' || mode === 'RTTY') points *= 2;
-    const hour = time.getHours();
-    if (hour >= 1 && hour < 6) points *= 3;
-    return points;
-}
+
 
 function appendToBackupFile(qso) {
     const backupDir = path.join(__dirname, '../backups');
@@ -353,6 +381,9 @@ function appendToBackupFile(qso) {
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const filename = `qso_log_${dateStr}.txt`;
     const filePath = path.join(backupDir, filename);
+
+    console.log('📁 Writing backup to:', filePath);
+
 
     const logLine = [
         new Date().toISOString(),

@@ -35,7 +35,8 @@
         <h1 class="mb-4">📻 Contest Logger</h1>
 
         <form id="qsoForm" class="border p-3 bg-white shadow-sm rounded">
-            <input type="hidden" id="qsoId" />
+            <input type="hidden" id="qsoId" name="qsoId">
+
 
             <div class="mb-3">
                 <label for="operatorName" class="form-label">Your Name (optional)</label>
@@ -97,9 +98,7 @@
                     <button type="button" class="btn btn-outline-secondary" id="clearEntry">Clear</button>
                     <button type="button" class="btn btn-warning" id="logNonContestBtn">Log Non-Contest QSO</button>
                 </div>
-                <div>
-                    <button type="button" class="btn btn-danger" id="clearLogBtn">Clear All Logs</button>
-                </div>
+
             </div>
         </form>
 
