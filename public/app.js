@@ -31,7 +31,7 @@ function applyCallsignFilter() {
 async function loadContacts() {
     const tableBody = document.querySelector('#qsoTable tbody');
     try {
-        
+
         const res = await fetch('/log');
         const qsos = await res.json();
         console.log('📥 Loaded QSOs:', qsos);
@@ -62,12 +62,15 @@ async function loadContacts() {
                 <td>${qso.comments || ''}</td>
                 <td><span class="btn-group"><button class="edit-btn">✏️</button><button class="delete-btn">🗑️</button></span></td>`;
             row.addEventListener('click', () => {
-                if (!row.classList.contains('editing')) {
-                    document.getElementById('callsign').value = qso.callsign;
-                    document.getElementById('rxReport').value = qso.rxReport || '';
-                    document.getElementById('comments').value = qso.comments || '';
-                    document.getElementById('callsign').focus();
-                    document.getElementById('qsoId').value = qso.id;
+                if (e.target.classList.contains('edit-btn')) {
+                    // ✏️ Only now we enter edit mode
+                    document.getElementById('callsign').value = row.cells[1].textContent;
+                    document.getElementById('band').value = row.cells[2].textContent;
+                    document.getElementById('mode').value = row.cells[3].textContent;
+                    document.getElementById('sentReport').value = row.cells[5].textContent;
+                    document.getElementById('rxReport').value = row.cells[6].textContent;
+                    document.getElementById('comments').value = row.cells[7].textContent;
+                    document.getElementById('qsoId').value = qsoId;
                 }
             });
             tableBody.appendChild(row);
@@ -141,6 +144,7 @@ window.addEventListener('DOMContentLoaded', () => {
         console.log('📡 Band changed:', selectedBand);
         socket.emit('setBand', selectedBand);
         sendStatusUpdate();
+        loadContacts(); // ✅ refresh table
     });
     document.getElementById('mode').addEventListener('change', sendStatusUpdate);
 
@@ -159,8 +163,11 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('callsign').value = '';
         document.getElementById('rxReport').value = '';
         document.getElementById('comments').value = '';
-        document.getElementById('callsign').focus();
+        document.getElementById('sentReport').value = `59${String(licenseYears).padStart(3, '0')}`;
+        document.getElementById('qsoId').value = '';
+        applyCallsignFilter();
         sendStatusUpdate();
+        document.getElementById('callsign').focus();
     });
 
     document.getElementById('qsoTable').addEventListener('click', async (e) => {
@@ -204,6 +211,30 @@ window.addEventListener('DOMContentLoaded', () => {
             document.getElementById('comments').value = comments;
             document.getElementById('qsoId').value = qsoId;
         }
+
+        // ✨ New: Pre-fill form for NEW QSO based on clicked row (not edit)
+        if (!e.target.classList.contains('edit-btn') && !e.target.classList.contains('delete-btn')) {
+            const callsign = row.cells[1].textContent;
+            const rxReport = row.cells[6].textContent;
+            const comments = row.cells[7].textContent;
+
+            document.getElementById('callsign').value = callsign;
+            document.getElementById('rxReport').value = rxReport || '';
+            document.getElementById('comments').value = comments || '';
+
+            // Reset QSO ID to avoid edit mode
+            document.getElementById('qsoId').value = '';
+
+            // Refresh filter + 3-hour check
+            applyCallsignFilter();
+            sendStatusUpdate();
+        }
+
+
+
+
+
+
     });
 
     document.getElementById('qsoForm').addEventListener('submit', async (e) => {
@@ -250,9 +281,15 @@ window.addEventListener('DOMContentLoaded', () => {
             console.log('📨 Server responded:', data);
 
             if (data.success) {
+                // Preserve band/mode before reset
+                const currentBand = document.getElementById('band').value;
+                const currentMode = document.getElementById('mode').value;
+
                 document.getElementById('qsoForm').reset();
+                document.getElementById('band').value = currentBand;
+                document.getElementById('mode').value = currentMode;
                 document.getElementById('sentReport').value = `59${String(licenseYears).padStart(3, '0')}`;
-                document.getElementById('qsoId').value = ''; // Reset edit state
+                document.getElementById('qsoId').value = '';
                 await loadContacts();
                 document.getElementById('callsign').focus();
                 isLoggingNonContest = false;
