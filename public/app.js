@@ -13,6 +13,19 @@ function formatShortDate(dateStr) {
     return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+function updateLogButtonState() {
+    const band = document.getElementById('band').value;
+    const mode = document.getElementById('mode').value;
+    const logBtn = document.getElementById('logBtn');
+    const logNonBtn = document.getElementById('logNonContestBtn');
+    const alert = document.getElementById('bandModeAlert');
+    const disable = (band === '' || mode === '');
+    logBtn.disabled = disable;
+    logNonBtn.disabled = disable;
+    alert.style.display = disable ? 'block' : 'none';
+}
+
+
 function applyCallsignFilter() {
     const callsignFilter = document.getElementById('callsign').value.toUpperCase();
     const bandFilter = document.getElementById('band').value;
@@ -129,6 +142,8 @@ socket.on('newQSO', () => {
 window.addEventListener('DOMContentLoaded', () => {
     loadContacts();
     loadLicenseYears();
+    updateLogButtonState(); // ✅ Disable if 'Any' selected by default
+
 
     document.getElementById('operatorName').value = operatorName;
     document.getElementById('callsign').focus();
@@ -141,12 +156,18 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('callsign').addEventListener('input', applyCallsignFilter);
     document.getElementById('band').addEventListener('change', () => {
         const selectedBand = document.getElementById('band').value;
+        updateLogButtonState();
         console.log('📡 Band changed:', selectedBand);
         socket.emit('setBand', selectedBand);
         sendStatusUpdate();
         loadContacts(); // ✅ refresh table
+        
     });
-    document.getElementById('mode').addEventListener('change', sendStatusUpdate);
+    document.getElementById('mode').addEventListener('change', () => {
+        updateLogButtonState();  // ✅ Add this
+        sendStatusUpdate();
+    });
+
 
     document.getElementById('operatorName').addEventListener('input', () => {
         operatorName = document.getElementById('operatorName').value.trim();
@@ -230,6 +251,7 @@ window.addEventListener('DOMContentLoaded', () => {
             sendStatusUpdate();
         }
 
+        
 
 
 
@@ -302,6 +324,13 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-
+    fetch('/version')
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('version').textContent = data.version ? `(${data.version})` : '';
+        })
+        .catch(err => {
+            console.error('❌ Failed to fetch version:', err);
+        });
 
 });

@@ -4,7 +4,8 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Contest Logger</title>
+    <title>Contest Logger  </title>
+    
     <link rel="stylesheet" href="/css/bootstrap.min.css" />
     <style>
         body {
@@ -32,7 +33,7 @@
 </head>
 <body>
     <div class="container">
-        <h1 class="mb-4">📻 Contest Logger</h1>
+        <h1 class="mb-4">📻 Contest Logger <span id="version"></span></h1>
 
         <form id="qsoForm" class="border p-3 bg-white shadow-sm rounded">
             <input type="hidden" id="qsoId" name="qsoId">
@@ -47,6 +48,7 @@
                 <div class="col">
                     <label for="band" class="form-label">Band</label>
                     <select id="band" class="form-select" required>
+                        <option value="">Any</option>
                         <option>160m</option>
                         <option>80m</option>
                         <option selected>40m</option>
@@ -59,6 +61,7 @@
                 <div class="col">
                     <label for="mode" class="form-label">Mode</label>
                     <select id="mode" class="form-select" required>
+                        <option value="">Any</option>
                         <option selected>SSB</option>
                         <option>CW</option>
                         <option>RTTY</option>
@@ -98,6 +101,10 @@
                     <button type="button" class="btn btn-outline-secondary" id="clearEntry">Clear</button>
                     <button type="button" class="btn btn-warning" id="logNonContestBtn">Log Non-Contest QSO</button>
                 </div>
+                <div id="bandModeAlert" class="text-danger mt-2" style="display: none;">
+                    ⚠️ Please select both a band and mode to log a QSO.
+                </div>
+
 
             </div>
         </form>

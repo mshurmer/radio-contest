@@ -11,6 +11,8 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { validateQSO, calculatePoints } = require('./rules');
 const clientStatuses = {}; // socket.id => { band, mode }
+const APP_VERSION = 'v0.1'; // 💡 Update this as needed
+
 
 
 
@@ -43,6 +45,14 @@ const server = http.createServer(app);
 const io = new Server(server);
 const PORT = 3000;
 const ADMIN_PASSWORD = '9100943'; // ✅ Change this to your actual password
+
+// verion app
+app.get('/version', (req, res) => {
+    res.json({ version: APP_VERSION });
+});
+
+
+
 
 // Middleware
 // Serve static frontend files
