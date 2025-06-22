@@ -11,7 +11,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { validateQSO, calculatePoints } = require('./rules');
 const clientStatuses = {}; // socket.id => { band, mode }
-const APP_VERSION = 'v0.1'; // 💡 Update this as needed
+const APP_VERSION = 'v0.2'; // 💡 Update this as needed
 
 
 
@@ -114,6 +114,29 @@ io.on('connection', (socket) => {
     socket.on('statusUpdate', ({ band, mode, name }) => {
         clientStatuses[socket.id] = { band, mode, name };
         io.emit('userStatusUpdate', clientStatuses);
+
+        // First, group users by band+mode
+        const bandModeMap = {};
+
+        for (const [id, s] of Object.entries(clientStatuses)) {
+            const key = `${s.band}|${s.mode}`;
+            if (!bandModeMap[key]) bandModeMap[key] = [];
+            bandModeMap[key].push(id);
+        }
+
+        // Now go through all users and update their warning status
+        for (const [key, ids] of Object.entries(bandModeMap)) {
+            const warning = ids.length > 1
+                ? `⚠️ Someone else is also using ${key.replace('|', ' ')}`
+                : '';
+
+            ids.forEach(id => {
+                io.to(id).emit('bandWarning', warning);
+            });
+        }
+
+
+
     });
 
     socket.on('setBand', (band) => {
