@@ -28,8 +28,7 @@ function updateLogButtonState() {
 
 function applyCallsignFilter() {
     const callsignFilter = document.getElementById('callsign').value.toUpperCase();
-    const bandFilter = document.getElementById('band').value;
-    const modeFilter = document.getElementById('mode').value;
+    const match = rowCallsign.includes(callsignFilter);
     const rows = document.querySelectorAll('#qsoTable tbody tr');
 
     rows.forEach(row => {
@@ -59,13 +58,31 @@ async function loadContacts() {
         qsos.forEach(qso => {
             const qsoTime = new Date(qso.time);
             const timeSince = now - qsoTime;
-            const isRecentSameBandMode = (qso.band === selectedBand && qso.mode === selectedMode && timeSince < threeHoursMs);
+            const bandMatches = !selectedBand || qso.band === selectedBand;
+            const modeMatches = !selectedMode || qso.mode === selectedMode;
+
+            // If user selected specific band/mode, skip mismatches
+            if (selectedBand && !bandMatches) return;
+            if (selectedMode && !modeMatches) return;
+
+            const isRecentSameBandMode = bandMatches && modeMatches && timeSince < threeHoursMs;
             const row = document.createElement('tr');
             row.setAttribute('data-id', qso.id);
+            let timeToGoDisplay = '';
+            if (isRecentSameBandMode) {
+                console.log('⏳ Calculating timeToGo for:', qso.callsign, qso.time);
+                const timeLeftMs = threeHoursMs - timeSince;
+                const hours = Math.floor(timeLeftMs / (60 * 60 * 1000));
+                const minutes = Math.floor((timeLeftMs % (60 * 60 * 1000)) / (60 * 1000));
+                timeToGoDisplay = `${hours}h ${String(minutes).padStart(2, '0')}m`;
+            }
+           
+
             if (qso.isNonContest) row.classList.add('non-contest-row');
             if (isRecentSameBandMode) row.classList.add('qso-invalid');
             row.innerHTML = `
                 <td>${formatShortDate(qso.time)}</td>
+                <td>${timeToGoDisplay}</td> <!-- 👈 New column -->
                 <td>${qso.callsign}</td>
                 <td>${qso.band}</td>
                 <td>${qso.mode}</td>
@@ -166,6 +183,7 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('mode').addEventListener('change', () => {
         updateLogButtonState();  // ✅ Add this
         sendStatusUpdate();
+        loadContacts();
     });
 
 
@@ -217,12 +235,12 @@ window.addEventListener('DOMContentLoaded', () => {
 
         // ✏️ Handle edit button
         if (e.target.classList.contains('edit-btn')) {
-            const callsign = row.cells[1].textContent;
-            const band = row.cells[2].textContent;
-            const mode = row.cells[3].textContent;
-            const sentReport = row.cells[5].textContent;
-            const rxReport = row.cells[6].textContent;
-            const comments = row.cells[7].textContent;
+            const callsign = row.cells[2].textContent;     // ✅ was [1], now [2]
+            const band = row.cells[3].textContent;         // ✅ was [2], now [3]
+            const mode = row.cells[4].textContent;         // ✅ was [3], now [4]
+            const sentReport = row.cells[6].textContent;   // ✅ was [5], now [6]
+            const rxReport = row.cells[7].textContent;     // ✅ was [6], now [7]
+            const comments = row.cells[8].textContent;     // ✅ was [7], now [8]
 
             document.getElementById('callsign').value = callsign;
             document.getElementById('band').value = band;

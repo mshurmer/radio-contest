@@ -22,8 +22,9 @@
             background-color: #fce4ec;
         }
 
-        .qso-invalid {
-            background-color: #fff3cd;
+        .qso-invalid td {
+            background-color: #f8d7da !important; /* Bootstrap danger-light red */
+            /*/border-left: 4px solid #dc3545; /* Adds a red stripe for visual cue */
         }
 
         .btn-group button {
@@ -128,6 +129,7 @@
             <thead>
                 <tr>
                     <th>Time</th>
+                    <th>TTG</th>
                     <th>Callsign</th>
                     <th>Band</th>
                     <th>Mode</th>
