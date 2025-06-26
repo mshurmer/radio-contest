@@ -11,7 +11,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { validateQSO, calculatePoints } = require('./rules');
 const clientStatuses = {}; // socket.id => { band, mode }
-const APP_VERSION = 'v0.2'; // 💡 Update this as needed
+const APP_VERSION = 'v0.3 25Jun'; // 💡 Update this as needed
 
 
 
@@ -302,28 +302,23 @@ app.put('/log/:id', (req, res) => {
         const parsedTime = new Date(originalTime);
         console.log('⚙️ validateQSO called with excludeId:', id);
 
-        validateQSO(callsign, band, mode, parsedTime,id, db, ({ valid, points, message }) => {
+        validateQSO(callsign, band, mode, parsedTime, id, db, ({ valid, points, message }) => {
             console.log('🔍 validateQSO result:', { valid, points, message });
-
-            if (!valid) {
-                return res.status(400).json({ success: false, message });
-            }
-
-            const finalPoints = parseInt(isNonContest) === 1 ? 0 : points;
+            // ✅ SKIP validation entirely when editing a QSO
+            const finalPoints = parseInt(isNonContest) === 1 ? 0 : calculatePoints(band, mode, parsedTime);
 
             db.run(
                 `UPDATE qsos SET 
-                    callsign = ?, 
-                    band = ?, 
-                    mode = ?, 
-                    sentReport = ?, 
-                    rxReport = ?, 
-                    points = ?, 
-                    time = ?, 
-                    isNonContest = ?,
-                    comments = ?
-                WHERE id = ?`,
-                [callsign, band, mode, sentReport, rxReport, finalPoints, originalTime, isNonContest, comments, id],
+        callsign = ?, 
+        band = ?, 
+        mode = ?, 
+        sentReport = ?, 
+        rxReport = ?, 
+        points = ?, 
+        isNonContest = ?,
+        comments = ?
+    WHERE id = ?`,
+                [callsign, band, mode, sentReport, rxReport, finalPoints, isNonContest, comments, id],
                 function (err) {
                     if (err) {
                         console.error('Update error:', err.message);
@@ -333,9 +328,14 @@ app.put('/log/:id', (req, res) => {
                     res.json({ success: true });
                 }
             );
-        }); 
+
+           
+        });
+
+
     });
 });
+
 
 
 

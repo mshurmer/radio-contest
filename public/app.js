@@ -28,14 +28,18 @@ function updateLogButtonState() {
 
 function applyCallsignFilter() {
     const callsignFilter = document.getElementById('callsign').value.toUpperCase();
-    const match = rowCallsign.includes(callsignFilter);
+    const bandFilter = document.getElementById('band').value;
+    const modeFilter = document.getElementById('mode').value;
     const rows = document.querySelectorAll('#qsoTable tbody tr');
 
     rows.forEach(row => {
-        const rowCallsign = row.cells[1].textContent.toUpperCase();
-        const rowBand = row.cells[2].textContent;
-        const rowMode = row.cells[3].textContent;
-        const match = rowCallsign.includes(callsignFilter) && (bandFilter === '' || rowBand === bandFilter) && (modeFilter === '' || rowMode === modeFilter);
+        const rowCallsign = row.cells[2].textContent.toUpperCase();
+        const rowBand = row.cells[3].textContent;
+        const rowMode = row.cells[4].textContent;
+        const match =
+            rowCallsign.includes(callsignFilter) &&
+            (bandFilter === '' || rowBand === bandFilter) &&
+            (modeFilter === '' || rowMode === modeFilter);
         row.style.display = match ? '' : 'none';
     });
 }
@@ -253,9 +257,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
         // ✨ New: Pre-fill form for NEW QSO based on clicked row (not edit)
         if (!e.target.classList.contains('edit-btn') && !e.target.classList.contains('delete-btn')) {
-            const callsign = row.cells[1].textContent;
-            const rxReport = row.cells[6].textContent;
-            const comments = row.cells[7].textContent;
+            const callsign = row.cells[2].textContent;
+            const rxReport = row.cells[7].textContent;
+            const comments = row.cells[8].textContent;
 
             document.getElementById('callsign').value = callsign;
             document.getElementById('rxReport').value = rxReport || '';

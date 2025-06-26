@@ -6,7 +6,7 @@
     return points;
 }
 
-function validateQSO(callsign, band, mode, time, excludeId,db,callback) {
+function validateQSO(callsign, band, mode, time, excludeId, db, callback) {
     const threeHoursAgo = new Date(time.getTime() - 3 * 60 * 60 * 1000).toISOString();
     const query = `SELECT * FROM qsos WHERE band = ? AND mode = ? AND time > ?`;
     const params = [band, mode, threeHoursAgo];
@@ -24,11 +24,11 @@ function validateQSO(callsign, band, mode, time, excludeId,db,callback) {
 
         for (const row of rows) {
             const isSameCallsign = row.callsign.toLowerCase() === callsign.toLowerCase();
-            const isSameId = excludeId !== null && row.id === parseInt(excludeId);
+            const isSameId = excludeId != null && row.id == excludeId; // Allow == to coerce number/string
             console.log(`🧐 Checking row ID ${row.id}: isSameCallsign=${isSameCallsign}, isSameId=${isSameId}`);
 
             if (isSameCallsign && !isSameId) {
-                console.warn('⚠️ Found conflict with QSO(s):', row);
+                console.warn('⚠️ Conflict found:', row);
                 return callback({
                     valid: false,
                     points: 0,
@@ -42,6 +42,8 @@ function validateQSO(callsign, band, mode, time, excludeId,db,callback) {
         return callback({ valid: true, points, message: '' });
     });
 }
+
+
 
 
 
