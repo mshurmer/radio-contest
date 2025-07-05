@@ -37,6 +37,56 @@ saveBtn.addEventListener('click', async () => {
         status.textContent = '❌ ' + (result.message || 'Failed');
     }
 });
+//the calibro formate code
+
+const cabrilloContainer = document.getElementById('cabrilloFields');
+const cabrilloStatus = document.getElementById('cabrilloStatus');
+const saveCabrilloBtn = document.getElementById('saveCabrilloBtn');
+
+const HEADER_KEYS = [
+    'CALLSIGN', 'CONTEST', 'CATEGORY-OPERATOR', 'CATEGORY-BAND',
+    'CATEGORY-MODE', 'CATEGORY-TRANSMITTER', 'CATEGORY-POWER',
+    'NAME', 'EMAIL', 'CLUB', 'ADDRESS', 'SOAPBOX'
+];
+
+// Load existing values
+fetch('/admin/cabrilloHeaders')
+    .then(res => res.json())
+    .then(data => {
+        if (!data.success) return cabrilloStatus.textContent = '❌ Failed to load headers';
+        HEADER_KEYS.forEach(key => {
+            const group = document.createElement('div');
+            group.className = 'mb-2';
+            group.innerHTML = `
+                <label class="form-label">${key}</label>
+                <input type="text" class="form-control" id="cabrillo-${key}" value="${data.headers[key] || ''}">
+            `;
+            cabrilloContainer.appendChild(group);
+        });
+    });
+
+saveCabrilloBtn.addEventListener('click', async () => {
+    const password = prompt('Enter admin password:');
+    if (!password) return;
+
+    const headers = {};
+    HEADER_KEYS.forEach(key => {
+        headers[key] = document.getElementById(`cabrillo-${key}`).value.trim();
+    });
+
+    const res = await fetch('/admin/cabrilloHeaders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ headers, password })
+    });
+
+    const result = await res.json();
+    cabrilloStatus.textContent = result.success ? '✅ Headers saved' : '❌ Save failed';
+});
+
+
+
+
 
 // ✅ Clear All Logs handler
 if (clearLogBtn) {

@@ -97,6 +97,12 @@ db.serialize(() => {
   value TEXT
 )`);
 
+    db.run(`CREATE TABLE IF NOT EXISTS cabrillo_headers (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    )`);
+
+
     // Initialize default if not set
     db.get(`SELECT value FROM settings WHERE key = 'yearsLicensed'`, [], (err, row) => {
         if (!row) {
@@ -104,6 +110,10 @@ db.serialize(() => {
         }
     });
 });
+
+
+
+
 
 // Socket.IO connection
 io.on('connection', (socket) => {
@@ -256,10 +266,70 @@ app.post('/log', (req, res) => {
         );
     });
 });
+//export the calbro log 
+app.get('/export/cabrillo', (req, res) => {
+    const headersToLoad = [
+        'CALLSIGN', 'CONTEST', 'CATEGORY-OPERATOR', 'CATEGORY-BAND', 'CATEGORY-MODE',
+        'CATEGORY-TRANSMITTER', 'CATEGORY-POWER', 'NAME', 'EMAIL', 'CLUB', 'ADDRESS', 'SOAPBOX'
+    ];
+
+    // Step 1: Load header fields
+    db.all(`SELECT key, value FROM cabrillo_headers WHERE key IN (${headersToLoad.map(() => '?').join(',')})`, headersToLoad, (err, rows) => {
+        if (err) {
+            console.error('Header fetch error:', err.message);
+            return res.status(500).send('Failed to fetch headers');
+        }
+
+        const headerMap = Object.fromEntries(rows.map(row => [row.key, row.value || '']));
+
+        // Step 2: Load QSO entries
+        db.all('SELECT * FROM qsos ORDER BY time ASC', [], (err, qsos) => {
+            if (err) {
+                console.error('QSO fetch error:', err.message);
+                return res.status(500).send('Failed to fetch QSOs');
+            }
+
+            // Step 3: Format lines
+            const lines = [];
+
+            // Headers
+            headersToLoad.forEach(key => {
+                const val = (headerMap[key] || '').trim();
+                if (val) lines.push(`${key}: ${val}`);
+            });
+
+            lines.push(''); // Empty line before QSOs
+
+            // QSO lines
+            for (const qso of qsos) {
+                const qsoDate = new Date(qso.time);
+                const yyyy = qsoDate.getUTCFullYear();
+                const mm = String(qsoDate.getUTCMonth() + 1).padStart(2, '0');
+                const dd = String(qsoDate.getUTCDate()).padStart(2, '0');
+                const hh = String(qsoDate.getUTCHours()).padStart(2, '0');
+                const min = String(qsoDate.getUTCMinutes()).padStart(2, '0');
+
+                const qsoLine = `QSO: ${qso.band.padEnd(5)} ${qso.mode.padEnd(3)} ${yyyy}-${mm}-${dd} ${hh}${min} ${qso.callsign.padEnd(13)} ${qso.sentReport.padEnd(6)} ${qso.rxReport.padEnd(6)} ${headerMap['CALLSIGN'] || 'UNKNOWN'}`;
+                lines.push(qsoLine);
+            }
+
+            lines.push('END-OF-LOG');
+
+            // Step 4: Return file
+            const logText = lines.join('\r\n');
+            res.setHeader('Content-Disposition', 'attachment; filename="contest_log.cabrillo"');
+            res.setHeader('Content-Type', 'text/plain');
+            res.send(logText);
+        });
+    });
+});
+
+
+
+
+
 
 // Get all QSOs
-
-
 app.post('/admin/clearLog', express.json(), requirePassword, (req, res) => {
     db.run('DELETE FROM qsos', function (err) {
         if (err) {
@@ -337,7 +407,47 @@ app.put('/log/:id', (req, res) => {
 });
 
 
+const REQUIRED_HEADER_FIELDS = [
+    'CALLSIGN',
+    'CONTEST',
+    'CATEGORY-OPERATOR',
+    'CATEGORY-ASSISTED',
+    'CATEGORY-BAND',
+    'CATEGORY-MODE',
+    'CATEGORY-POWER',
+    'CATEGORY-STATION',
+    'CATEGORY-TRANSMITTER',
+    'CLAIMED-SCORE',
+    'CLUB',
+    'CREATED-BY',
+    'EMAIL',
+    'GRID-LOCATOR',
+    'LOCATION',
+    'NAME',
+    'ADDRESS',
+    'ADDRESS-CITY',
+    'ADDRESS-STATE-PROVINCE',
+    'ADDRESS-POSTALCODE',
+    'ADDRESS-COUNTRY',
+    'OPERATORS',
+    'SOAPBOX'
+];
 
+REQUIRED_HEADER_FIELDS.forEach(field => {
+    db.get(`SELECT value FROM cabrillo_headers WHERE key = ?`, [field], (err, row) => {
+        if (err) {
+            console.error(`Error checking cabrillo header for ${field}:`, err.message);
+        } else if (!row) {
+            db.run(`INSERT INTO cabrillo_headers (key, value) VALUES (?, '')`, [field], (err2) => {
+                if (err2) {
+                    console.error(`Failed to insert cabrillo header ${field}:`, err2.message);
+                } else {
+                    console.log(`📝 Inserted default Cabrillo header: ${field}`);
+                }
+            });
+        }
+    });
+});
 
 
 
@@ -400,6 +510,48 @@ app.get('/admin/yearsLicensed', (req, res) => {
         const value = parseInt(row.value, 10);
         res.json({ success: true, value });
     });
+});
+
+
+// Get Cabrillo headers
+app.get('/admin/cabrilloHeaders', (req, res) => {
+    db.all(`SELECT key, value FROM cabrillo_headers`, [], (err, rows) => {
+        if (err) {
+            console.error('Failed to load Cabrillo headers:', err.message);
+            return res.status(500).json({ success: false });
+        }
+        const headers = {};
+        rows.forEach(row => { headers[row.key] = row.value; });
+        res.json({ success: true, headers });
+    });
+});
+
+// Save/update Cabrillo headers
+app.post('/admin/cabrilloHeaders', express.json(), requirePassword, (req, res) => {
+    const updates = req.body.headers;
+    if (!updates || typeof updates !== 'object') {
+        return res.status(400).json({ success: false, message: 'Invalid data format' });
+    }
+
+    const queries = Object.entries(updates).map(([key, value]) => {
+        return new Promise((resolve, reject) => {
+            db.run(`
+                INSERT INTO cabrillo_headers (key, value)
+                VALUES (?, ?)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            `, [key, value], (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
+    });
+
+    Promise.all(queries)
+        .then(() => res.json({ success: true }))
+        .catch(err => {
+            console.error('Failed to save headers:', err.message);
+            res.status(500).json({ success: false });
+        });
 });
 
 
