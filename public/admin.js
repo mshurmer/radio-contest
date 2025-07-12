@@ -1,9 +1,7 @@
-﻿// public/admin.js
-
-const input = document.getElementById('adminYearsLicensed');
+﻿const input = document.getElementById('adminYearsLicensed');
 const saveBtn = document.getElementById('saveYearsBtn');
 const status = document.getElementById('adminStatus');
-const clearLogBtn = document.getElementById('clearLogBtn'); // ✅ New
+const clearLogBtn = document.getElementById('clearLogBtn');
 
 // Load years licensed
 fetch('/admin/yearsLicensed')
@@ -13,7 +11,6 @@ fetch('/admin/yearsLicensed')
         else status.textContent = '❌ Failed to load';
     });
 
-// Save years licensed
 saveBtn.addEventListener('click', async () => {
     const value = parseInt(input.value, 10);
     if (isNaN(value) || value < 0 || value > 999) {
@@ -37,17 +34,26 @@ saveBtn.addEventListener('click', async () => {
         status.textContent = '❌ ' + (result.message || 'Failed');
     }
 });
-//the calibro formate code
 
 const cabrilloContainer = document.getElementById('cabrilloFields');
 const cabrilloStatus = document.getElementById('cabrilloStatus');
 const saveCabrilloBtn = document.getElementById('saveCabrilloBtn');
 
 const HEADER_KEYS = [
-    'CALLSIGN', 'CONTEST', 'CATEGORY-OPERATOR', 'CATEGORY-BAND',
-    'CATEGORY-MODE', 'CATEGORY-TRANSMITTER', 'CATEGORY-POWER',
-    'NAME', 'EMAIL', 'CLUB', 'ADDRESS', 'SOAPBOX'
+    'LOCATION', 'CALLSIGN', 'CLUB', 'CONTEST', 'CATEGORY-OPERATOR', 'CATEGORY-BAND',
+    'CATEGORY-MODE', 'CATEGORY-POWER', 'CATEGORY-STATION', 'CATEGORY-TRANSMITTER',
+    'CLAIMED-SCORE', 'OPERATORS', 'EMAIL', 'NAME', 'ADDRESS', 'ADDRESS-CITY',
+    'ADDRESS-STATE-PROVINCE', 'ADDRESS-POSTALCODE', 'CREATED-BY', 'SOAPBOX'
 ];
+
+const DROPDOWN_OPTIONS = {
+    'CATEGORY-OPERATOR': ['', 'SINGLE-OP', 'MULTI-OP', 'CHECKLOG'],
+    'CATEGORY-BAND': ['', 'ALL', '160M', '80M', '40M', '20M', '15M', '10M'],
+    'CATEGORY-MODE': ['', 'SSB', 'CW', 'FM', 'MIXED'],
+    'CATEGORY-POWER': ['', 'HIGH', 'LOW', 'QRP'],
+    'CATEGORY-STATION': ['', 'FIXED', 'MOBILE', 'PORTABLE'],
+    'CATEGORY-TRANSMITTER': ['', 'ONE', 'TWO', 'UNLIMITED']
+};
 
 // Load existing values
 fetch('/admin/cabrilloHeaders')
@@ -57,10 +63,24 @@ fetch('/admin/cabrilloHeaders')
         HEADER_KEYS.forEach(key => {
             const group = document.createElement('div');
             group.className = 'mb-2';
+
+            let inputField = '';
+
+            if (DROPDOWN_OPTIONS[key]) {
+                inputField = `<select class="form-select" id="cabrillo-${key}">
+                    ${DROPDOWN_OPTIONS[key].map(opt => `
+                        <option value="${opt}" ${data.headers[key] === opt ? 'selected' : ''}>${opt}</option>
+                    `).join('')}
+                </select>`;
+            } else {
+                inputField = `<input type="text" class="form-control" id="cabrillo-${key}" value="${data.headers[key] || ''}">`;
+            }
+
             group.innerHTML = `
                 <label class="form-label">${key}</label>
-                <input type="text" class="form-control" id="cabrillo-${key}" value="${data.headers[key] || ''}">
+                ${inputField}
             `;
+
             cabrilloContainer.appendChild(group);
         });
     });
@@ -83,10 +103,6 @@ saveCabrilloBtn.addEventListener('click', async () => {
     const result = await res.json();
     cabrilloStatus.textContent = result.success ? '✅ Headers saved' : '❌ Save failed';
 });
-
-
-
-
 
 // ✅ Clear All Logs handler
 if (clearLogBtn) {

@@ -269,8 +269,10 @@ app.post('/log', (req, res) => {
 //export the calbro log 
 app.get('/export/cabrillo', (req, res) => {
     const headersToLoad = [
-        'CALLSIGN', 'CONTEST', 'CATEGORY-OPERATOR', 'CATEGORY-BAND', 'CATEGORY-MODE',
-        'CATEGORY-TRANSMITTER', 'CATEGORY-POWER', 'NAME', 'EMAIL', 'CLUB', 'ADDRESS', 'SOAPBOX'
+        'LOCATION','CALLSIGN','CLUB','CONTEST','CATEGORY-OPERATOR', 'CATEGORY-BAND',
+        'CATEGORY-MODE', 'CATEGORY-POWER', 'CATEGORY-STATION', 'CATEGORY-TRANSMITTER',
+        'CLAIMED-SCORE', 'OPERATORS', 'EMAIL','NAME', 'ADDRESS', 'ADDRESS-CITY', 'ADDRESS-STATE-PROVINCE', 'ADDRESS-POSTALCODE',
+          'CREATED-BY','SOAPBOX'
     ];
 
     // Step 1: Load header fields
@@ -282,6 +284,13 @@ app.get('/export/cabrillo', (req, res) => {
 
         const headerMap = Object.fromEntries(rows.map(row => [row.key, row.value || '']));
 
+        // Fill missing headers with default value
+        headersToLoad.forEach(key => {
+            if (!headerMap[key]) {
+                headerMap[key] = 'UNKNOWN';
+            }
+        });
+
         // Step 2: Load QSO entries
         db.all('SELECT * FROM qsos ORDER BY time ASC', [], (err, qsos) => {
             if (err) {
@@ -289,8 +298,10 @@ app.get('/export/cabrillo', (req, res) => {
                 return res.status(500).send('Failed to fetch QSOs');
             }
 
-            // Step 3: Format lines
             const lines = [];
+
+            // Start of log
+            lines.push('START-OF-LOG: 3.0');
 
             // Headers
             headersToLoad.forEach(key => {
@@ -298,9 +309,11 @@ app.get('/export/cabrillo', (req, res) => {
                 if (val) lines.push(`${key}: ${val}`);
             });
 
-            lines.push(''); // Empty line before QSOs
+           // lines.push(''); // Empty line before QSOs
 
             // QSO lines
+            const operatorCallsign = (headerMap['CALLSIGN'] || 'UNKNOWN').padEnd(8);
+
             for (const qso of qsos) {
                 const qsoDate = new Date(qso.time);
                 const yyyy = qsoDate.getUTCFullYear();
@@ -309,20 +322,52 @@ app.get('/export/cabrillo', (req, res) => {
                 const hh = String(qsoDate.getUTCHours()).padStart(2, '0');
                 const min = String(qsoDate.getUTCMinutes()).padStart(2, '0');
 
-                const qsoLine = `QSO: ${qso.band.padEnd(5)} ${qso.mode.padEnd(3)} ${yyyy}-${mm}-${dd} ${hh}${min} ${qso.callsign.padEnd(13)} ${qso.sentReport.padEnd(6)} ${qso.rxReport.padEnd(6)} ${headerMap['CALLSIGN'] || 'UNKNOWN'}`;
+                // Frequency in kHz
+                const bandMap = {
+                    '160m': '  1800',
+                    '80m': '  3500',
+                    '40m': '  7000',
+                    '20m': ' 14000',
+                    '15m': ' 21000',
+                    '10m': ' 28000',
+                    '23cm': '1296000'
+                };
+                const freq = bandMap[qso.band] || '0000';
+
+                // Cabrillo mode
+                const modeMap = {
+                    'SSB': 'PH',
+                    'CW': 'CW',
+                    'RTTY': 'RY',
+                    'FM': 'FM'
+                };
+                const cabrilloMode = modeMap[qso.mode] || qso.mode;
+
+                const myCall = (headerMap['CALLSIGN'] || 'UNKNOWN').padEnd(13);
+                const theirCall = qso.callsign.padEnd(13);
+
+                const sentRpt = (qso.sentReport.substring(0, 2) || '59').padEnd(3);
+                const sentNr = (qso.sentReport.substring(2) || '001').padEnd(6);
+                const rcvdRpt = (qso.rxReport.substring(0, 2) || '59').padEnd(3);
+                const rcvdNr = (qso.rxReport.substring(2) || '001').padEnd(6);
+
+                const qsoLine =
+                    `QSO:${freq} ${cabrilloMode} ${yyyy}-${mm}-${dd} ${hh}${min} ${myCall} ${sentRpt} ${sentNr} ${theirCall} ${rcvdRpt} ${rcvdNr}`;
+
                 lines.push(qsoLine);
             }
 
-            lines.push('END-OF-LOG');
+            lines.push('END-OF-LOG:');
 
-            // Step 4: Return file
             const logText = lines.join('\r\n');
+
             res.setHeader('Content-Disposition', 'attachment; filename="contest_log.cabrillo"');
             res.setHeader('Content-Type', 'text/plain');
             res.send(logText);
         });
     });
 });
+
 
 
 
