@@ -11,7 +11,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { validateQSO, calculatePoints } = require('./rules');
 const clientStatuses = {}; // socket.id => { band, mode }
-const APP_VERSION = 'v0.3 25Jun'; // 💡 Update this as needed
+const APP_VERSION = 'v0.5 13JulyJun'; // 💡 Update this as needed
 
 
 
@@ -282,6 +282,9 @@ app.get('/export/cabrillo', (req, res) => {
             return res.status(500).send('Failed to fetch headers');
         }
 
+         //calculate claimed score here
+       
+
         const headerMap = Object.fromEntries(rows.map(row => [row.key, row.value || '']));
 
         // Fill missing headers with default value
@@ -292,11 +295,13 @@ app.get('/export/cabrillo', (req, res) => {
         });
 
         // Step 2: Load QSO entries
-        db.all('SELECT * FROM qsos ORDER BY time ASC', [], (err, qsos) => {
+        db.all('SELECT * FROM qsos WHERE isNonContest = 0 ORDER BY time ASC', [], (err, qsos) => {
             if (err) {
                 console.error('QSO fetch error:', err.message);
                 return res.status(500).send('Failed to fetch QSOs');
             }
+            //calculate claimed score here
+            const claimedScore = qsos.reduce((sum, qso) => sum + (qso.points || 0), 0);
 
             const lines = [];
 
@@ -305,8 +310,9 @@ app.get('/export/cabrillo', (req, res) => {
 
             // Headers
             headersToLoad.forEach(key => {
-                const val = (headerMap[key] || '').trim();
-                if (val) lines.push(`${key}: ${val}`);
+                let val = (headerMap[key] || '').trim();
+                if (key === 'CLAIMED-SCORE') val = claimedScore.toString(); // overwrite with calculated score
+                lines.push(`${key}: ${val || 'UNKNOWN'}`);
             });
 
            // lines.push(''); // Empty line before QSOs

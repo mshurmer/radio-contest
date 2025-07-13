@@ -36,6 +36,8 @@
     <div class="container">
         <h1 class="mb-4">📻 Contest Logger <span id="version"></span></h1>
 
+        <div id="clock" style="font-weight: bold; font-size: 1.2em;"></div>
+
         <form id="qsoForm" class="border p-3 bg-white shadow-sm rounded">
             <input type="hidden" id="qsoId" name="qsoId">
 
@@ -112,15 +114,15 @@
 
         <hr class="my-4" />
         <!--
-        <div class="mb-3">
-            <label for="adminYearsLicensed" class="form-label">Years Licensed</label>
-            <div class="input-group">
-                <input type="number" id="adminYearsLicensed" class="form-control" min="0" max="999" />
-                <button class="btn btn-success" id="saveYearsBtn">Save</button>
-            </div>
-            <div id="adminStatus" class="mt-1 text-muted small"></div>
+    <div class="mb-3">
+        <label for="adminYearsLicensed" class="form-label">Years Licensed</label>
+        <div class="input-group">
+            <input type="number" id="adminYearsLicensed" class="form-control" min="0" max="999" />
+            <button class="btn btn-success" id="saveYearsBtn">Save</button>
         </div>
-        -->
+        <div id="adminStatus" class="mt-1 text-muted small"></div>
+    </div>
+    -->
         <hr />
 
 
@@ -145,7 +147,7 @@
             </tbody>
         </table>
 
-        
+
     </div>
 
     <script src="/socket.io/socket.io.js"></script>

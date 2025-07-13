@@ -165,6 +165,27 @@ window.addEventListener('DOMContentLoaded', () => {
     loadLicenseYears();
     updateLogButtonState(); // ✅ Disable if 'Any' selected by default
 
+    // have a clock
+    function updateClock() {
+        const clockEl = document.getElementById('clock');
+        if (!clockEl) return;
+
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hh = String(now.getHours()).padStart(2, '0');
+        const mm = String(now.getMinutes()).padStart(2, '0');
+
+        clockEl.textContent = `${year}-${month}-${day} ${hh}:${mm}`;
+    }
+
+    // Run it once immediately
+    updateClock();
+
+    // Then update every minute
+    setInterval(updateClock, 60000);
+
 
     document.getElementById('operatorName').value = operatorName;
     document.getElementById('callsign').focus();

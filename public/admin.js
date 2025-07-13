@@ -131,3 +131,10 @@ if (clearLogBtn) {
         }
     });
 }
+const exportBtn = document.getElementById('exportCabrilloBtn');
+
+if (exportBtn) {
+    exportBtn.addEventListener('click', () => {
+        window.open('/export/cabrillo', '_blank');
+    });
+}
