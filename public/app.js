@@ -267,6 +267,8 @@ window.addEventListener('DOMContentLoaded', () => {
             const rxReport = row.cells[7].textContent;     // ✅ was [6], now [7]
             const comments = row.cells[8].textContent;     // ✅ was [7], now [8]
 
+            document.getElementById('logBtn').textContent = 'Edit QSO';// change the buttons name
+
             document.getElementById('callsign').value = callsign;
             document.getElementById('band').value = band;
             document.getElementById('mode').value = mode;
@@ -349,6 +351,8 @@ window.addEventListener('DOMContentLoaded', () => {
                 // Preserve band/mode before reset
                 const currentBand = document.getElementById('band').value;
                 const currentMode = document.getElementById('mode').value;
+
+                document.getElementById('logBtn').textContent = 'Log QSO';
 
                 document.getElementById('qsoForm').reset();
                 document.getElementById('band').value = currentBand;

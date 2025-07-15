@@ -11,7 +11,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { validateQSO, calculatePoints } = require('./rules');
 const clientStatuses = {}; // socket.id => { band, mode }
-const APP_VERSION = 'v0.5 13JulyJun'; // 💡 Update this as needed
+const APP_VERSION = 'v0.5 15July'; // 💡 Update this as needed
 
 
 
