@@ -11,7 +11,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { validateQSO, calculatePoints } = require('./rules');
 const clientStatuses = {}; // socket.id => { band, mode }
-const APP_VERSION = 'v0.5 15July'; // 💡 Update this as needed
+const APP_VERSION = 'v1.0 26July'; // 💡 Update this as needed
 
 
 
@@ -33,6 +33,21 @@ function requireAuth(req, res, next) {
     next();
 }
 
+//setup a logging process
+
+const actionLogPath = path.join(__dirname, '../logs/user_actions.log');
+function logUserAction(user, action, data = {}) {
+    const timestamp = new Date().toISOString();
+    const logLine = `${timestamp} | ${user || 'UNKNOWN'} | ${action} | ${JSON.stringify(data)}\n`;
+
+    fs.appendFile(actionLogPath, logLine, (err) => {
+        if (err) console.error('⚠️ Failed to write user action log:', err.message);
+    });
+}
+
+if (!fs.existsSync(path.join(__dirname, '../logs'))) {
+    fs.mkdirSync(path.join(__dirname, '../logs'), { recursive: true });
+}
 
 
 
@@ -195,7 +210,12 @@ function requirePassword(req, res, next) {
 app.post('/log', (req, res) => {
     const currentTime = new Date();
     const timeStr = currentTime.toISOString();
-    const { callsign, band, mode, rxReport, sentReport, comments, isNonContest } = req.body;
+    const { callsign, band, mode, rxReport, sentReport, comments, isNonContest, operatorName } = req.body;
+
+    console.log('📩 Server received QSO from operator:', req.body.operatorName || 'anonymous');
+    logUserAction(req.body.operatorName || 'anonymous', 'Log QSO', {
+        callsign, band, mode, rxReport, sentReport, isNonContest
+    });
 
 
     validateQSO(callsign, band, mode, currentTime,null, db, ({ valid, points, message }) => {
@@ -382,6 +402,10 @@ app.get('/export/cabrillo', (req, res) => {
 
 // Get all QSOs
 app.post('/admin/clearLog', express.json(), requirePassword, (req, res) => {
+    const operator = req.body.operator || 'anonymous';
+
+    logUserAction(operator, 'Clear All Logs');
+
     db.run('DELETE FROM qsos', function (err) {
         if (err) {
             console.error('Error clearing log:', err);
@@ -395,17 +419,36 @@ app.post('/admin/clearLog', express.json(), requirePassword, (req, res) => {
 
 
 
+
 // delete
 app.delete('/log/:id', (req, res) => {
     const id = req.params.id;
-    db.run(`DELETE FROM qsos WHERE id = ?`, [id], function (err) {
+    const operator = req.query.operator || 'anonymous';
+
+    // First: get the QSO details
+    db.get('SELECT * FROM qsos WHERE id = ?', [id], (err, row) => {
         if (err) {
-            console.error('Delete error:', err.message);
+            console.error('Fetch before delete failed:', err.message);
             return res.status(500).json({ success: false });
         }
-        res.json({ success: true });
+        if (!row) {
+            return res.status(404).json({ success: false, message: 'QSO not found' });
+        }
+
+        // Log the full QSO details before deleting
+        logUserAction(operator, 'Delete QSO', row);
+
+        // Proceed to delete
+        db.run('DELETE FROM qsos WHERE id = ?', [id], function (err2) {
+            if (err2) {
+                console.error('Delete error:', err2.message);
+                return res.status(500).json({ success: false });
+            }
+            res.json({ success: true });
+        });
     });
 });
+
 
 app.put('/log/:id', (req, res) => {
     const id = parseInt(req.params.id);
@@ -428,6 +471,21 @@ app.put('/log/:id', (req, res) => {
             // ✅ SKIP validation entirely when editing a QSO
             const finalPoints = parseInt(isNonContest) === 1 ? 0 : calculatePoints(band, mode, parsedTime);
 
+            // ✅ Add logging before updating
+            logUserAction(req.body.operatorName || 'anonymous', 'Edit QSO', {
+                id,
+                callsign,
+                band,
+                mode,
+                sentReport,
+                rxReport,
+                isNonContest,
+                comments
+            });
+
+
+
+
             db.run(
                 `UPDATE qsos SET 
         callsign = ?, 
@@ -445,7 +503,17 @@ app.put('/log/:id', (req, res) => {
                         console.error('Update error:', err.message);
                         return res.status(500).json({ success: false });
                     }
-
+                    // 👇 Add this line here:
+                    logUserAction(req.body.operatorName || 'anonymous', 'Edit QSO', {
+                        id,
+                        callsign,
+                        band,
+                        mode,
+                        sentReport,
+                        rxReport,
+                        isNonContest,
+                        comments
+                    });
                     res.json({ success: true });
                 }
             );
@@ -505,10 +573,13 @@ REQUIRED_HEADER_FIELDS.forEach(field => {
 
 app.post('/admin/yearsLicensed', express.json(), requirePassword, (req, res) => {
     const value = req.body.value;
+    const operator = req.body.operator || 'anonymous';
 
     if (typeof value !== 'number' || value < 0 || value > 999) {
         return res.status(400).json({ success: false, message: 'Invalid number' });
     }
+
+    logUserAction(operator, 'Update Years Licensed', { value });
 
     db.get(`SELECT value FROM settings WHERE key = 'yearsLicensed'`, [], (err, row) => {
         if (err) {
@@ -517,7 +588,6 @@ app.post('/admin/yearsLicensed', express.json(), requirePassword, (req, res) => 
         }
 
         if (row) {
-            // Update existing value
             db.run(`UPDATE settings SET value = ? WHERE key = 'yearsLicensed'`, [value.toString()], (err2) => {
                 if (err2) {
                     console.error('Failed to update setting:', err2.message);
@@ -526,7 +596,6 @@ app.post('/admin/yearsLicensed', express.json(), requirePassword, (req, res) => 
                 res.json({ success: true });
             });
         } else {
-            // Insert new value
             db.run(`INSERT INTO settings (key, value) VALUES ('yearsLicensed', ?)`, [value.toString()], (err2) => {
                 if (err2) {
                     console.error('Failed to insert setting:', err2.message);
@@ -639,6 +708,32 @@ function appendToBackupFile(qso) {
     });
 }
 
+const BACKUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const dbPath = path.join(__dirname, '../db/contest.db');
+const backupDir = path.join(__dirname, '../backups');
+
+if (!fs.existsSync(backupDir)) {
+    fs.mkdirSync(backupDir, { recursive: true });
+}
+
+function createBackup() {
+    const now = new Date();
+    const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+    const backupFilename = `contest_backup_${timestamp}.db`;
+    const backupPath = path.join(backupDir, backupFilename);
+
+    fs.copyFile(dbPath, backupPath, (err) => {
+        if (err) {
+            console.error('❌ Failed to create backup:', err.message);
+        } else {
+            console.log(`🗄️ Backup created: ${backupFilename}`);
+        }
+    });
+}
+
+// Run once immediately, then every 5 minutes
+createBackup();
+setInterval(createBackup, BACKUP_INTERVAL_MS);
 
 
 // Start the server

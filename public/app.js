@@ -71,7 +71,9 @@ async function loadContacts() {
 
             const isRecentSameBandMode = bandMatches && modeMatches && timeSince < threeHoursMs;
             const row = document.createElement('tr');
-            row.setAttribute('data-id', qso.id);
+            row.setAttribute('data-time', qso.time); // Save timestamp in ISO string
+            row.setAttribute('data-band', qso.band);
+            row.setAttribute('data-mode', qso.mode);
             let timeToGoDisplay = '';
             if (isRecentSameBandMode) {
                 console.log('⏳ Calculating timeToGo for:', qso.callsign, qso.time);
@@ -180,11 +182,47 @@ window.addEventListener('DOMContentLoaded', () => {
         clockEl.textContent = `${year}-${month}-${day} ${hh}:${mm}`;
     }
 
+
+    function updateTTG() {
+        const rows = document.querySelectorAll('#qsoTable tbody tr');
+        const now = new Date();
+        const threeHoursMs = 3 * 60 * 60 * 1000;
+
+        rows.forEach(row => {
+            const qsoTimeStr = row.getAttribute('data-time');
+            const band = row.getAttribute('data-band');
+            const mode = row.getAttribute('data-mode');
+            if (!qsoTimeStr || !band || !mode) return;
+
+            const qsoTime = new Date(qsoTimeStr);
+            const timeSince = now - qsoTime;
+
+            const timeToGoCell = row.cells[1]; // column 1 is TTG
+            if (timeSince < threeHoursMs) {
+                const timeLeftMs = threeHoursMs - timeSince;
+                const hours = Math.floor(timeLeftMs / (60 * 60 * 1000));
+                const minutes = Math.floor((timeLeftMs % (60 * 60 * 1000)) / (60 * 1000));
+                timeToGoCell.textContent = `${hours}h ${String(minutes).padStart(2, '0')}m`;
+                row.classList.add('qso-invalid');
+            } else {
+                timeToGoCell.textContent = '';
+                row.classList.remove('qso-invalid');
+            }
+        });
+    }
+
+
+
+
     // Run it once immediately
     updateClock();
 
     // Then update every minute
-    setInterval(updateClock, 60000);
+    setInterval(() => {
+        updateClock();
+        updateTTG(); // 👈 also refresh TTG values live
+    }, 60000);
+
 
 
     document.getElementById('operatorName').value = operatorName;
@@ -323,8 +361,12 @@ window.addEventListener('DOMContentLoaded', () => {
             sentReport,
             rxReport,
             comments,
-            isNonContest
+            isNonContest,
+            operatorName  // 👈 this gets picked from the variable already set at the top
+
         };
+
+        console.log('📤 Submitting QSO with operator:', operatorName);
 
         try {
             let res;
@@ -346,6 +388,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
             const data = await res.json();
             console.log('📨 Server responded:', data);
+           
+
 
             if (data.success) {
                 // Preserve band/mode before reset

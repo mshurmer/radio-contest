@@ -24,7 +24,8 @@ saveBtn.addEventListener('click', async () => {
     const res = await fetch('/admin/yearsLicensed', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value, password })
+        body: JSON.stringify({ value, password, operator: localStorage.getItem('operatorName') || 'anonymous' })
+
     });
 
     const result = await res.json();
@@ -117,7 +118,8 @@ if (clearLogBtn) {
             const res = await fetch('/admin/clearLog', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password })
+                body: JSON.stringify({ password, operator: localStorage.getItem('operatorName') || 'anonymous' })
+
             });
 
             const data = await res.json();
