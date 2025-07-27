@@ -71,6 +71,7 @@ async function loadContacts() {
 
             const isRecentSameBandMode = bandMatches && modeMatches && timeSince < threeHoursMs;
             const row = document.createElement('tr');
+            row.setAttribute('data-id', qso.id); // ✅ Add this line
             row.setAttribute('data-time', qso.time); // Save timestamp in ISO string
             row.setAttribute('data-band', qso.band);
             row.setAttribute('data-mode', qso.mode);
@@ -97,7 +98,7 @@ async function loadContacts() {
                 <td>${qso.rxReport || ''}</td>
                 <td>${qso.comments || ''}</td>
                 <td><span class="btn-group"><button class="edit-btn">✏️</button><button class="delete-btn">🗑️</button></span></td>`;
-            row.addEventListener('click', () => {
+            row.addEventListener('click', (e) => {
                 if (e.target.classList.contains('edit-btn')) {
                     // ✏️ Only now we enter edit mode
                     document.getElementById('callsign').value = row.cells[1].textContent;
