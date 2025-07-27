@@ -7,11 +7,22 @@ The software is only required to run the server
 Clients use a normal web browser
 ---
 
-Make sure to install the server-side packages (Express, SQLite, Socket.IO):
 
+1. Make sure you have [Node.js](https://nodejs.org) installed (which may include `npm`)
+Make sure to install the server-side packages (Express, SQLite, Socket.IO):  see npm install
 
-1. Make sure you have [Node.js](https://nodejs.org) installed (which includes `npm`)
+sudo apt update
+sudo apt install git
+sudo apt install nodejs
+node -v
+npm -v
 
+may need 
+sudo apt install npm
+
+git clone https://github.com/mshurmer/radio-contest.git
+
+npm install
 
 ## 🚀 Features
 

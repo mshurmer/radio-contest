@@ -79,6 +79,36 @@ const USE_AUTH = process.env.REQUIRE_LOGIN === 'true';
 console.log('🔐 REQUIRE_LOGIN is:', process.env.REQUIRE_LOGIN);
 console.log('🔐 USE_AUTH is:', USE_AUTH);
 
+// ==============================
+// 📤 SQLite Dump Endpoint
+// ==============================
+
+const { exec } = require('child_process');
+
+// Optional: restrict access with a token
+const DUMP_TOKEN = process.env.DUMP_TOKEN || 'supersecret'; // put this in your `.env` if you want
+
+app.get('/dump', (req, res) => {
+    // Optionally require token like: /dump?token=supersecret
+    if (req.query.token !== DUMP_TOKEN) {
+        return res.status(403).send('❌ Forbidden: Missing or wrong token');
+    }
+
+    console.log('📤 Received /dump request');
+
+    exec(`sqlite3 ${dbPath} .dump`, (err, stdout, stderr) => {
+        if (err) {
+            console.error('❌ Dump failed:', stderr);
+            return res.status(500).send('Failed to generate dump');
+        }
+
+        res.setHeader('Content-Type', 'text/plain');
+        res.send(stdout);
+    });
+});
+
+
+
 
 if (USE_AUTH) {
     
@@ -734,6 +764,10 @@ function createBackup() {
 // Run once immediately, then every 5 minutes
 createBackup();
 setInterval(createBackup, BACKUP_INTERVAL_MS);
+
+
+
+
 
 
 // Start the server
