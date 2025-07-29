@@ -400,6 +400,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('logBtn').textContent = 'Log QSO';
 
                 document.getElementById('qsoForm').reset();
+                document.getElementById('operatorName').value = operatorName; // ✅ restore name
                 document.getElementById('band').value = currentBand;
                 document.getElementById('mode').value = currentMode;
                 document.getElementById('sentReport').value = `59${String(licenseYears).padStart(3, '0')}`;
