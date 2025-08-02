@@ -738,7 +738,7 @@ function appendToBackupFile(qso) {
     });
 }
 
-const BACKUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const BACKUP_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 const dbPath = path.join(__dirname, '../db/contest.db');
 const backupDir = path.join(__dirname, '../backups');
 
