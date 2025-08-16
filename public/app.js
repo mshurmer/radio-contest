@@ -183,6 +183,80 @@ window.addEventListener('DOMContentLoaded', () => {
         clockEl.textContent = `${year}-${month}-${day} ${hh}:${mm}`;
     }
 
+    document.getElementById('bulkEntryBtn').addEventListener('click', () => {
+        const modal = new bootstrap.Modal(document.getElementById('bulkEntryModal'));
+        modal.show();
+    });
+
+    function parseBulkTime(input) {
+        // Expected format: "DD/MM HH:MM"
+        const match = input.trim().match(/^(\d{1,2})\/(\d{1,2}) (\d{1,2}):(\d{2})$/);
+        if (!match) return null;
+
+        const [, dd, mm, hh, min] = match.map(Number);
+        const now = new Date();
+        const yyyy = now.getFullYear(); // Assume current year
+
+        const date = new Date(yyyy, mm - 1, dd, hh, min);
+        return isNaN(date.getTime()) ? null : date.toISOString(); // convert to UTC ISO string
+    }
+
+
+
+    document.getElementById('uploadBulkBtn').addEventListener('click', async () => {
+        const rows = document.querySelectorAll('#bulkTable tbody tr');
+        const entries = [];
+
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length < 7) return;
+
+            const callsign = cells[0].textContent.trim();
+            const band = cells[1].textContent.trim();
+            const mode = cells[2].textContent.trim();
+            const sentReport = cells[3].textContent.trim();
+            const rxReport = cells[4].textContent.trim();
+            const rawTime = cells[5].textContent.trim();
+            const comments = cells[6].textContent.trim();
+            const isNonContest = cells[7].textContent.trim().toLowerCase() === 'yes' ? 1 : 0;
+
+            // Convert DD/MM HH:MM to ISO
+            const time = parseBulkTime(rawTime);
+
+            if (!callsign || !band || !mode) return; // basic filter
+
+            entries.push({
+                callsign, band, mode, sentReport, rxReport,
+                comments, isNonContest,
+                time,
+                operatorName
+            });
+        });
+
+        try {
+            const res = await fetch('/log/bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ entries })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                alert(`✅ ${data.count} QSOs uploaded`);
+                document.getElementById('bulkEntryModal').classList.remove('show');
+                document.body.classList.remove('modal-open');
+                document.querySelector('.modal-backdrop')?.remove();
+                await loadContacts();
+            } else {
+                alert('❌ Upload failed');
+            }
+        } catch (err) {
+            console.error('Bulk upload failed:', err);
+            alert('❌ Error uploading bulk QSOs');
+        }
+    });
+
+
 
     function updateTTG() {
         const rows = document.querySelectorAll('#qsoTable tbody tr');
@@ -299,14 +373,19 @@ window.addEventListener('DOMContentLoaded', () => {
 
         // ✏️ Handle edit button
         if (e.target.classList.contains('edit-btn')) {
-            const callsign = row.cells[2].textContent;     // ✅ was [1], now [2]
-            const band = row.cells[3].textContent;         // ✅ was [2], now [3]
-            const mode = row.cells[4].textContent;         // ✅ was [3], now [4]
-            const sentReport = row.cells[6].textContent;   // ✅ was [5], now [6]
-            const rxReport = row.cells[7].textContent;     // ✅ was [6], now [7]
-            const comments = row.cells[8].textContent;     // ✅ was [7], now [8]
+            const isoTime = row.getAttribute('data-time');
+            const callsign = row.cells[2].textContent;
+            const band = row.cells[3].textContent;
+            const mode = row.cells[4].textContent;
+            const sentReport = row.cells[6].textContent;
+            const rxReport = row.cells[7].textContent;
+            const comments = row.cells[8].textContent;
 
-            document.getElementById('logBtn').textContent = 'Edit QSO';// change the buttons name
+            const localTime = new Date(isoTime);
+            const tzOffset = localTime.getTimezoneOffset() * 60000;
+            const localISO = new Date(localTime - tzOffset).toISOString().slice(0, 16);
+
+            document.getElementById('logBtn').textContent = 'Edit QSO';
 
             document.getElementById('callsign').value = callsign;
             document.getElementById('band').value = band;
@@ -315,6 +394,7 @@ window.addEventListener('DOMContentLoaded', () => {
             document.getElementById('rxReport').value = rxReport;
             document.getElementById('comments').value = comments;
             document.getElementById('qsoId').value = qsoId;
+            document.getElementById('qsoTime').value = localISO; // ✅ set time field
         }
 
         // ✨ New: Pre-fill form for NEW QSO based on clicked row (not edit)
@@ -351,6 +431,7 @@ window.addEventListener('DOMContentLoaded', () => {
         const band = document.getElementById('band').value;
         const mode = document.getElementById('mode').value;
         const sentReport = document.getElementById('sentReport').value;
+        const timeInput = document.getElementById('qsoTime').value;
         const rxReport = document.getElementById('rxReport').value;
         const comments = document.getElementById('comments').value;
         const isNonContest = isLoggingNonContest ? 1 : 0;
@@ -363,7 +444,8 @@ window.addEventListener('DOMContentLoaded', () => {
             rxReport,
             comments,
             isNonContest,
-            operatorName  // 👈 this gets picked from the variable already set at the top
+            operatorName,  // 👈 this gets picked from the variable already set at the top
+            time: timeInput // optional for new QSOs
 
         };
 
@@ -425,5 +507,64 @@ window.addEventListener('DOMContentLoaded', () => {
         .catch(err => {
             console.error('❌ Failed to fetch version:', err);
         });
+    document.getElementById('uploadBulkBtn').addEventListener('click', async () => {
+        const table = document.getElementById('bulkTable');
+        const rows = table.querySelectorAll('tbody tr');
+
+        const entries = [];
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            const callsign = cells[0].textContent.trim();
+            const band = cells[1].textContent.trim();
+            const mode = cells[2].textContent.trim();
+            const sentReport = cells[3].textContent.trim();
+            const rxReport = cells[4].textContent.trim();
+            const time = cells[5].textContent.trim();
+            const comments = cells[6].textContent.trim();
+            const isNonContest = /y/i.test(cells[7].textContent.trim()) ? 1 : 0;
+
+            // Skip empty rows (no callsign)
+            if (!callsign) return;
+
+            entries.push({
+                callsign,
+                band,
+                mode,
+                sentReport,
+                rxReport,
+                time,
+                comments,
+                isNonContest,
+                operatorName
+            });
+        });
+
+        if (entries.length === 0) {
+            alert('No valid entries to upload.');
+            return;
+        }
+
+        try {
+            const res = await fetch('/log/bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ entries })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                alert(`✅ ${data.count} QSOs uploaded`);
+                document.getElementById('bulkEntryModal').classList.remove('show');
+                document.body.classList.remove('modal-open');
+                document.querySelector('.modal-backdrop')?.remove();
+                await loadContacts();  // Refresh the table
+            } else {
+                alert('❌ Bulk upload failed: ' + (data.message || 'Unknown error'));
+            }
+        } catch (err) {
+            console.error('Bulk upload error:', err);
+            alert('❌ Failed to upload QSOs.');
+        }
+    });
 
 });

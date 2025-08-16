@@ -78,6 +78,11 @@
             </div>
 
             <div class="mb-3">
+                <label for="qsoTime">Time:</label>
+                <input type="datetime-local" id="qsoTime" name="qsoTime">
+            </div>
+
+            <div class="mb-3">
                 <label for="callsign" class="form-label">Callsign</label>
                 <input type="text" id="callsign" class="form-control" required tabindex="1" />
             </div>
@@ -103,6 +108,7 @@
                     <button type="submit" class="btn btn-primary" id="logBtn" tabindex="3">Log QSO</button>
                     <button type="button" class="btn btn-outline-secondary" id="clearEntry">Clear</button>
                     <button type="button" class="btn btn-warning" id="logNonContestBtn">Log Non-Contest QSO</button>
+                    <button type="button" class="btn btn-success" id="bulkEntryBtn">Bulk Entry</button>
                 </div>
                 <div id="bandModeAlert" class="text-danger mt-2" style="display: none;">
                     ⚠️ Please select both a band and mode to log a QSO.
@@ -114,15 +120,15 @@
 
         <hr class="my-4" />
         <!--
-    <div class="mb-3">
-        <label for="adminYearsLicensed" class="form-label">Years Licensed</label>
-        <div class="input-group">
-            <input type="number" id="adminYearsLicensed" class="form-control" min="0" max="999" />
-            <button class="btn btn-success" id="saveYearsBtn">Save</button>
+        <div class="mb-3">
+            <label for="adminYearsLicensed" class="form-label">Years Licensed</label>
+            <div class="input-group">
+                <input type="number" id="adminYearsLicensed" class="form-control" min="0" max="999" />
+                <button class="btn btn-success" id="saveYearsBtn">Save</button>
+            </div>
+            <div id="adminStatus" class="mt-1 text-muted small"></div>
         </div>
-        <div id="adminStatus" class="mt-1 text-muted small"></div>
-    </div>
-    -->
+        -->
         <hr />
 
 
@@ -155,6 +161,54 @@
     <div style="position: fixed; bottom: 10px; right: 10px; z-index: 1000;">
         <a href="/admin.html" style="font-size: 0.9em; text-decoration: none;">🔧 Admin</a>
     </div>
+
+    <!-- Bulk Entry Modal -->
+    <div class="modal fade" id="bulkEntryModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Bulk QSO Entry</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <table class="table table-bordered" id="bulkTable">
+                        <thead>
+                            <tr>
+                                <th>Callsign</th>
+                                <th>Band</th>
+                                <th>Mode</th>
+                                <th>Sent Report</th>
+                                <th>Received Report</th>
+                                <th>Time (local)</th>
+                                <th>Comments</th>
+                                <th>Non-Contest</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td></tr>
+                            <tr><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td></tr>
+                            <tr><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td></tr>
+                            <tr><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td></tr>
+                            <tr><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td></tr>
+                            <tr><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td></tr>
+                            <tr><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td></tr>
+                            <tr><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td></tr>
+                            <tr><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td></tr>
+                            <tr><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="uploadBulkBtn">Upload All</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <script src="/bootstrap/js/bootstrap.bundle.min.js"></script>
 </body>
 
 

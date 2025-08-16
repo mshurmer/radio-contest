@@ -238,32 +238,21 @@ function requirePassword(req, res, next) {
 
 // Log a new QSO
 app.post('/log', (req, res) => {
-    const currentTime = new Date();
-    const timeStr = currentTime.toISOString();
-    const { callsign, band, mode, rxReport, sentReport, comments, isNonContest, operatorName } = req.body;
+    const { callsign, band, mode, rxReport, sentReport, comments, isNonContest, operatorName, time } = req.body;
+    const actualTime = time ? new Date(time) : new Date();
+    const timeStr = actualTime.toISOString();
 
-    console.log('📩 Server received QSO from operator:', req.body.operatorName || 'anonymous');
-    logUserAction(req.body.operatorName || 'anonymous', 'Log QSO', {
+    console.log('📩 Server received QSO from operator:', operatorName || 'anonymous');
+    logUserAction(operatorName || 'anonymous', 'Log QSO', {
         callsign, band, mode, rxReport, sentReport, isNonContest
     });
 
-
-    validateQSO(callsign, band, mode, currentTime,null, db, ({ valid, points, message }) => {
-        console.log('🔍 validateQSO result:', { valid, points, message });
-
-        if (!valid) {
-            return res.json({ success: false, message });
-        }
-
-        const actualPoints = parseInt(isNonContest) === 1 ? 0 : points;
-
-        console.log('Inserting QSO with points:', actualPoints, 'isNonContest:', isNonContest);
-
-
+    // ✅ Define this function inside so we can call it from either path
+    function insertQSO(pointsToUse) {
         db.run(
-            `INSERT INTO qsos (callsign, band, mode, time, points, sentReport, rxReport, comments,isNonContest)
-   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [callsign, band, mode, timeStr, points, sentReport, rxReport, comments, isNonContest],
+            `INSERT INTO qsos (callsign, band, mode, time, points, sentReport, rxReport, comments, isNonContest)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [callsign, band, mode, timeStr, pointsToUse, sentReport, rxReport, comments, isNonContest],
             function (err) {
                 if (err) {
                     console.error('Insert error:', err.message);
@@ -275,7 +264,7 @@ app.post('/log', (req, res) => {
                     callsign,
                     band,
                     mode,
-                    points,
+                    points: pointsToUse,
                     time: timeStr,
                     sentReport,
                     rxReport,
@@ -283,9 +272,6 @@ app.post('/log', (req, res) => {
                     isNonContest
                 });
 
-                console.log('📝 Logging QSO to DB...');
-                console.log('📁 Attempting backup write...');
-
                 appendToBackupFile({
                     callsign,
                     band,
@@ -295,27 +281,29 @@ app.post('/log', (req, res) => {
                     comments,
                     isNonContest
                 });
-
-                console.log('✅ appendToBackupFile called');
-
-
-
-                appendToBackupFile({
-                    callsign,
-                    band,
-                    mode,
-                    sentReport,
-                    rxReport,
-                    comments,
-                    isNonContest
-                });
-
 
                 return res.json({ success: true });
             }
         );
-    });
+    }
+
+    // ✅ If non-contest, skip validation
+    if (parseInt(isNonContest) === 1) {
+        insertQSO(0); // always 0 points
+    } else {
+        // Validate before inserting
+        validateQSO(callsign, band, mode, actualTime, null, db, ({ valid, points, message }) => {
+            console.log('🔍 validateQSO result:', { valid, points, message });
+
+            if (!valid) {
+                return res.json({ success: false, message });
+            }
+
+            insertQSO(points);
+        });
+    }
 });
+
 //export the calbro log 
 app.get('/export/cabrillo', (req, res) => {
     const headersToLoad = [
@@ -484,7 +472,7 @@ app.put('/log/:id', (req, res) => {
     const id = parseInt(req.params.id);
     console.log('🛠 Editing QSO ID:', id);
 
-    const { callsign, band, mode, sentReport, rxReport, isNonContest, comments } = req.body;
+    const { callsign, band, mode, sentReport, rxReport, isNonContest, comments, time } = req.body;
 
     db.get(`SELECT time FROM qsos WHERE id = ?`, [id], (err, row) => {
         if (err || !row) {
@@ -493,67 +481,48 @@ app.put('/log/:id', (req, res) => {
         }
 
         const originalTime = row.time;
-        const parsedTime = new Date(originalTime);
-        console.log('⚙️ validateQSO called with excludeId:', id);
+        const parsedTime = new Date(time || originalTime); // updated with user time
+        const finalPoints = parseInt(isNonContest) === 1 ? 0 : calculatePoints(band, mode, parsedTime);
 
-        validateQSO(callsign, band, mode, parsedTime, id, db, ({ valid, points, message }) => {
-            console.log('🔍 validateQSO result:', { valid, points, message });
-            // ✅ SKIP validation entirely when editing a QSO
-            const finalPoints = parseInt(isNonContest) === 1 ? 0 : calculatePoints(band, mode, parsedTime);
-
-            // ✅ Add logging before updating
-            logUserAction(req.body.operatorName || 'anonymous', 'Edit QSO', {
-                id,
-                callsign,
-                band,
-                mode,
-                sentReport,
-                rxReport,
-                isNonContest,
-                comments
-            });
-
-
-
-
-            db.run(
-                `UPDATE qsos SET 
-        callsign = ?, 
-        band = ?, 
-        mode = ?, 
-        sentReport = ?, 
-        rxReport = ?, 
-        points = ?, 
-        isNonContest = ?,
-        comments = ?
-    WHERE id = ?`,
-                [callsign, band, mode, sentReport, rxReport, finalPoints, isNonContest, comments, id],
-                function (err) {
-                    if (err) {
-                        console.error('Update error:', err.message);
-                        return res.status(500).json({ success: false });
-                    }
-                    // 👇 Add this line here:
-                    logUserAction(req.body.operatorName || 'anonymous', 'Edit QSO', {
-                        id,
-                        callsign,
-                        band,
-                        mode,
-                        sentReport,
-                        rxReport,
-                        isNonContest,
-                        comments
-                    });
-                    res.json({ success: true });
-                }
-            );
-
-           
+        // ✅ Log the user action
+        logUserAction(req.body.operatorName || 'anonymous', 'Edit QSO', {
+            id,
+            callsign,
+            band,
+            mode,
+            sentReport,
+            rxReport,
+            isNonContest,
+            comments,
+            time
         });
 
+        db.run(
+            `UPDATE qsos SET 
+                callsign = ?, 
+                band = ?, 
+                mode = ?, 
+                sentReport = ?, 
+                rxReport = ?, 
+                points = ?, 
+                isNonContest = ?,
+                comments = ?,
+                time = ?
+             WHERE id = ?`,
+            [callsign, band, mode, sentReport, rxReport, finalPoints, isNonContest, comments, time || originalTime, id],
+            function (err) {
+                if (err) {
+                    console.error('Update error:', err.message);
+                    return res.status(500).json({ success: false });
+                }
 
+                io.emit('newQSO', {}); // ✅ Trigger table reload on all clients
+                res.json({ success: true });
+            }
+        );
     });
 });
+
 
 
 const REQUIRED_HEADER_FIELDS = [
@@ -649,6 +618,40 @@ app.get('/log', (req, res) => {
     });
 });
 
+app.post('/log/bulk', (req, res) => {
+    const entries = req.body.entries || [];
+
+    const stmt = db.prepare(`INSERT INTO qsos 
+        (callsign, band, mode, time, points, sentReport, rxReport, comments, isNonContest)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+
+    entries.forEach(entry => {
+        const {
+            callsign, band, mode, time, sentReport,
+            rxReport, comments, isNonContest, operatorName
+        } = entry;
+
+        const timeStr = time || new Date().toISOString();
+        const isNon = parseInt(isNonContest) === 1 ? 1 : 0;
+        const points = isNon ? 0 : calculatePoints(band, mode, new Date(timeStr));
+
+        logUserAction(operatorName || 'anonymous', 'Bulk Log QSO', {
+            callsign, band, mode, isNonContest
+        });
+
+        stmt.run(callsign, band, mode, timeStr, points, sentReport, rxReport, comments, isNon);
+    });
+
+    stmt.finalize(err => {
+        if (err) {
+            console.error('❌ Bulk insert failed:', err.message);
+            return res.status(500).json({ success: false });
+        }
+
+        io.emit('newQSO', {});
+        res.json({ success: true, count: entries.length });
+    });
+});
 
 
 app.get('/admin/yearsLicensed', (req, res) => {
