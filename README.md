@@ -34,6 +34,8 @@ npm install
 - Flag non-contest stations and add operator comments
 - Admin panel to configure "Years Licensed"
 - Built-in time and band/mode duplicate checking
+- Dedicated bulk-entry page for historical QSOs recorded on paper
+- Per-row bulk validation with clear saved or rejected results
 
 ---
 
