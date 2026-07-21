@@ -20,7 +20,7 @@ function options(values) {
 function addRow(values = {}, id = null) {
     const row = document.createElement('tr');
     row.dataset.existing = id == null ? 'false' : 'true';
-    row.dataset.dirty = id == null ? 'true' : 'false';
+    row.dataset.dirty = 'false';
     if (id != null) row.dataset.id = String(id);
 
     row.innerHTML = `
@@ -142,22 +142,20 @@ filterInput.addEventListener('input', applyFilter);
 tableBody.addEventListener('input', event => {
     const row = event.target.closest('tr');
     if (!row) return;
-    if (row.dataset.existing === 'true') {
-        row.dataset.dirty = 'true';
-        row.classList.remove('table-success', 'table-danger');
-        row.querySelector('.result-cell').textContent = 'Unsaved changes';
-    }
+    row.dataset.dirty = 'true';
+    row.classList.remove('table-success', 'table-danger');
+    row.querySelector('.result-cell').textContent =
+        row.dataset.existing === 'true' ? 'Unsaved changes' : 'New row';
     applyFilter();
 });
 
 tableBody.addEventListener('change', event => {
     const row = event.target.closest('tr');
     if (!row) return;
-    if (row.dataset.existing === 'true') {
-        row.dataset.dirty = 'true';
-        row.classList.remove('table-success', 'table-danger');
-        row.querySelector('.result-cell').textContent = 'Unsaved changes';
-    }
+    row.dataset.dirty = 'true';
+    row.classList.remove('table-success', 'table-danger');
+    row.querySelector('.result-cell').textContent =
+        row.dataset.existing === 'true' ? 'Unsaved changes' : 'New row';
 });
 
 tableBody.addEventListener('click', async event => {
@@ -197,7 +195,9 @@ submitButton.addEventListener('click', async () => {
     const changedRows = Array.from(tableBody.rows).filter(row =>
         row.dataset.existing === 'true' && row.dataset.dirty === 'true'
     );
-    const newRows = Array.from(tableBody.rows).filter(row => row.dataset.existing !== 'true');
+    const newRows = Array.from(tableBody.rows).filter(row =>
+        row.dataset.existing !== 'true' && row.dataset.dirty === 'true'
+    );
 
     if (changedRows.length === 0 && newRows.length === 0) {
         summary.className = 'mt-3 alert alert-info';
