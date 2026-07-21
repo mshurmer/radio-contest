@@ -20,13 +20,15 @@ const APP_VERSION = 'v1.0 26July'; // 💡 Update this as needed
 // this is about page security
 const auth = require('basic-auth');
 
-const USERS = {
-    'log': 'secret123', // 🔐 change username and password as needed
-};
+const LOGIN_USERNAME = process.env.LOGIN_USERNAME;
+const LOGIN_PASSWORD = process.env.LOGIN_PASSWORD;
 
 function requireAuth(req, res, next) {
     const user = auth(req);
-    if (!user || USERS[user.name] !== user.pass) {
+    if (!LOGIN_USERNAME || !LOGIN_PASSWORD) {
+        return res.status(503).send('Login is enabled but credentials are not configured.');
+    }
+    if (!user || user.name !== LOGIN_USERNAME || user.pass !== LOGIN_PASSWORD) {
         res.set('WWW-Authenticate', 'Basic realm="QSO Logger"');
         return res.status(401).send('Authentication required.');
     }
@@ -59,7 +61,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 const PORT = 3000;
-const ADMIN_PASSWORD = '9100943'; // ✅ Change this to your actual password
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
 // verion app
 app.get('/version', (req, res) => {
@@ -86,10 +88,12 @@ console.log('🔐 USE_AUTH is:', USE_AUTH);
 const { exec } = require('child_process');
 
 // Optional: restrict access with a token
-const DUMP_TOKEN = process.env.DUMP_TOKEN || 'supersecret'; // put this in your `.env` if you want
+const DUMP_TOKEN = process.env.DUMP_TOKEN;
 
 app.get('/dump', (req, res) => {
-    // Optionally require token like: /dump?token=supersecret
+    if (!DUMP_TOKEN) {
+        return res.status(503).send('Database dump is disabled until DUMP_TOKEN is configured.');
+    }
     if (req.query.token !== DUMP_TOKEN) {
         return res.status(403).send('❌ Forbidden: Missing or wrong token');
     }
@@ -228,6 +232,9 @@ io.on('connection', (socket) => {
 });
 
 function requirePassword(req, res, next) {
+    if (!ADMIN_PASSWORD) {
+        return res.status(503).json({ success: false, message: 'Admin access is not configured' });
+    }
     const { password } = req.body;
     if (password !== ADMIN_PASSWORD) {
         return res.status(403).json({ success: false, message: 'Unauthorized' });
@@ -263,7 +270,7 @@ app.post('/log', (req, res) => {
         db.run(
             `INSERT INTO qsos (callsign, band, mode, time, points, sentReport, rxReport, comments,isNonContest)
    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [callsign, band, mode, timeStr, points, sentReport, rxReport, comments, isNonContest],
+            [callsign, band, mode, timeStr, actualPoints, sentReport, rxReport, comments, isNonContest],
             function (err) {
                 if (err) {
                     console.error('Insert error:', err.message);
@@ -275,7 +282,7 @@ app.post('/log', (req, res) => {
                     callsign,
                     band,
                     mode,
-                    points,
+                    points: actualPoints,
                     time: timeStr,
                     sentReport,
                     rxReport,
@@ -298,17 +305,6 @@ app.post('/log', (req, res) => {
 
                 console.log('✅ appendToBackupFile called');
 
-
-
-                appendToBackupFile({
-                    callsign,
-                    band,
-                    mode,
-                    sentReport,
-                    rxReport,
-                    comments,
-                    isNonContest
-                });
 
 
                 return res.json({ success: true });
@@ -501,20 +497,9 @@ app.put('/log/:id', (req, res) => {
             // ✅ SKIP validation entirely when editing a QSO
             const finalPoints = parseInt(isNonContest) === 1 ? 0 : calculatePoints(band, mode, parsedTime);
 
-            // ✅ Add logging before updating
-            logUserAction(req.body.operatorName || 'anonymous', 'Edit QSO', {
-                id,
-                callsign,
-                band,
-                mode,
-                sentReport,
-                rxReport,
-                isNonContest,
-                comments
-            });
-
-
-
+            if (!valid) {
+                return res.status(409).json({ success: false, message });
+            }
 
             db.run(
                 `UPDATE qsos SET 
