@@ -97,19 +97,8 @@ async function loadContacts() {
                 <td>${qso.sentReport || ''}</td>
                 <td>${qso.rxReport || ''}</td>
                 <td>${qso.comments || ''}</td>
+                <td>${qso.qslCardRequested ? 'Yes' : ''}</td>
                 <td><span class="btn-group"><button class="edit-btn">✏️</button><button class="delete-btn">🗑️</button></span></td>`;
-            row.addEventListener('click', (e) => {
-                if (e.target.classList.contains('edit-btn')) {
-                    // ✏️ Only now we enter edit mode
-                    document.getElementById('callsign').value = row.cells[1].textContent;
-                    document.getElementById('band').value = row.cells[2].textContent;
-                    document.getElementById('mode').value = row.cells[3].textContent;
-                    document.getElementById('sentReport').value = row.cells[5].textContent;
-                    document.getElementById('rxReport').value = row.cells[6].textContent;
-                    document.getElementById('comments').value = row.cells[7].textContent;
-                    document.getElementById('qsoId').value = qsoId;
-                }
-            });
             tableBody.appendChild(row);
         });
         applyCallsignFilter();
@@ -266,6 +255,7 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('callsign').value = '';
         document.getElementById('rxReport').value = '';
         document.getElementById('comments').value = '';
+        document.getElementById('qslCardRequested').checked = false;
         document.getElementById('sentReport').value = `59${String(licenseYears).padStart(3, '0')}`;
         document.getElementById('qsoId').value = '';
         applyCallsignFilter();
@@ -305,6 +295,7 @@ window.addEventListener('DOMContentLoaded', () => {
             const sentReport = row.cells[6].textContent;   // ✅ was [5], now [6]
             const rxReport = row.cells[7].textContent;     // ✅ was [6], now [7]
             const comments = row.cells[8].textContent;     // ✅ was [7], now [8]
+            const qslCardRequested = row.cells[9].textContent === 'Yes';
 
             document.getElementById('logBtn').textContent = 'Edit QSO';// change the buttons name
 
@@ -314,6 +305,7 @@ window.addEventListener('DOMContentLoaded', () => {
             document.getElementById('sentReport').value = sentReport;
             document.getElementById('rxReport').value = rxReport;
             document.getElementById('comments').value = comments;
+            document.getElementById('qslCardRequested').checked = qslCardRequested;
             document.getElementById('qsoId').value = qsoId;
         }
 
@@ -326,6 +318,7 @@ window.addEventListener('DOMContentLoaded', () => {
             document.getElementById('callsign').value = callsign;
             document.getElementById('rxReport').value = rxReport || '';
             document.getElementById('comments').value = comments || '';
+            document.getElementById('qslCardRequested').checked = false;
 
             // Reset QSO ID to avoid edit mode
             document.getElementById('qsoId').value = '';
@@ -353,6 +346,7 @@ window.addEventListener('DOMContentLoaded', () => {
         const sentReport = document.getElementById('sentReport').value;
         const rxReport = document.getElementById('rxReport').value;
         const comments = document.getElementById('comments').value;
+        const qslCardRequested = document.getElementById('qslCardRequested').checked;
         const isNonContest = isLoggingNonContest ? 1 : 0;
 
         const qsoData = {
@@ -362,6 +356,7 @@ window.addEventListener('DOMContentLoaded', () => {
             sentReport,
             rxReport,
             comments,
+            qslCardRequested,
             isNonContest,
             operatorName  // 👈 this gets picked from the variable already set at the top
 
