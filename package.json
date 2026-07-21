@@ -4,7 +4,7 @@
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
-    "test": "node --test"
+    "test": "node --check server/server.js && node --check public/app.js && node --check public/bulk-entry.js && node --test"
   },
   "dependencies": {
     "basic-auth": "^2.0.1",
