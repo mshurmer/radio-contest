@@ -39,3 +39,25 @@ test('validateQSO ignores the QSO currently being edited', async () => {
 
     assert.equal(result.valid, true);
 });
+
+test('validateQSO checks both sides of a historical three-hour window', async () => {
+    const time = new Date('2025-01-01T12:00:00.000Z');
+    let capturedQuery;
+    let capturedParams;
+    const db = {
+        all(query, params, callback) {
+            capturedQuery = query;
+            capturedParams = params;
+            callback(null, []);
+        }
+    };
+
+    const result = await new Promise(resolve => {
+        validateQSO('VK6NEW', '40m', 'SSB', time, null, db, resolve);
+    });
+
+    assert.equal(result.valid, true);
+    assert.match(capturedQuery, /time > \? AND time < \?/);
+    assert.equal(capturedParams[2], '2025-01-01T09:00:00.000Z');
+    assert.equal(capturedParams[3], '2025-01-01T15:00:00.000Z');
+});
