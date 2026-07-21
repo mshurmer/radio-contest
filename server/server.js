@@ -332,6 +332,97 @@ app.post('/log', (req, res) => {
         );
     });
 });
+
+// Log multiple historical QSOs entered from paper records
+app.post('/log/bulk', (req, res) => {
+    const { qsos, operatorName } = req.body;
+    if (!Array.isArray(qsos) || qsos.length === 0) {
+        return res.status(400).json({ success: false, message: 'At least one QSO is required' });
+    }
+    if (qsos.length > 500) {
+        return res.status(400).json({ success: false, message: 'A maximum of 500 QSOs can be submitted at once' });
+    }
+
+    const allowedBands = new Set(['160m', '80m', '40m', '20m', '15m', '10m', '23cm']);
+    const allowedModes = new Set(['SSB', 'CW', 'RTTY']);
+    const results = [];
+    let position = 0;
+
+    function processNext() {
+        if (position >= qsos.length) {
+            const saved = results.filter(result => result.success).length;
+            const failed = results.length - saved;
+            return res.json({
+                success: failed === 0,
+                saved,
+                failed,
+                results
+            });
+        }
+
+        const index = position;
+        const item = qsos[position++];
+        const callsign = typeof item.callsign === 'string' ? item.callsign.trim() : '';
+        const band = item.band;
+        const mode = item.mode;
+        const time = new Date(item.time);
+
+        if (!callsign || !allowedBands.has(band) || !allowedModes.has(mode) || Number.isNaN(time.getTime())) {
+            results.push({ index, success: false, message: 'Enter a valid time, callsign, band, and mode' });
+            return processNext();
+        }
+
+        const sentReport = typeof item.sentReport === 'string' ? item.sentReport.trim() : '';
+        const rxReport = typeof item.rxReport === 'string' ? item.rxReport.trim() : '';
+        const comments = typeof item.comments === 'string' ? item.comments.trim() : '';
+        const isNonContest = item.isNonContest === true || Number(item.isNonContest) === 1 ? 1 : 0;
+        const qslCardRequested = item.qslCardRequested === true || Number(item.qslCardRequested) === 1 ? 1 : 0;
+        const timeStr = time.toISOString();
+
+        validateQSO(callsign, band, mode, time, null, db, ({ valid, points, message }) => {
+            if (!valid) {
+                results.push({ index, success: false, message });
+                return processNext();
+            }
+
+            const actualPoints = isNonContest ? 0 : points;
+            db.run(
+                `INSERT INTO qsos (callsign, band, mode, time, points, sentReport, rxReport, comments, isNonContest, qslCardRequested)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [callsign, band, mode, timeStr, actualPoints, sentReport, rxReport, comments, isNonContest, qslCardRequested],
+                function (err) {
+                    if (err) {
+                        results.push({ index, success: false, message: 'Database error: ' + err.message });
+                        return processNext();
+                    }
+
+                    const savedQso = {
+                        id: this.lastID,
+                        callsign,
+                        band,
+                        mode,
+                        time: timeStr,
+                        points: actualPoints,
+                        sentReport,
+                        rxReport,
+                        comments,
+                        isNonContest,
+                        qslCardRequested
+                    };
+
+                    logUserAction(operatorName || 'anonymous', 'Bulk Log QSO', savedQso);
+                    appendToBackupFile(savedQso);
+                    io.emit('newQSO', savedQso);
+                    results.push({ index, success: true, id: this.lastID });
+                    return processNext();
+                }
+            );
+        });
+    }
+
+    processNext();
+});
+
 //export the calbro log 
 app.get('/export/cabrillo', (req, res) => {
     const headersToLoad = [
@@ -729,7 +820,7 @@ function appendToBackupFile(qso) {
 
 
     const logLine = [
-        new Date().toISOString(),
+        qso.time || new Date().toISOString(),
         qso.callsign,
         qso.band,
         qso.mode,
