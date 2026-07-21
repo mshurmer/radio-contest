@@ -64,12 +64,12 @@ npm install
 
 3. Configure local settings:
 
-Copy `.env.example` to `.env` and replace the example passwords and token. Set `REQUIRE_LOGIN=true` if the web interface should require a login.
+Copy `.env.example` to `.env` and set strong passwords and a long random dump token. Set `REQUIRE_LOGIN=true` if the web interface should require a login.
 
 4. Start the server:
 node server/server.js
 
-4. Open your browser:
+5. Open your browser:
 http://localhost:3000
 
 📁 Folder Structure
