@@ -1,6 +1,7 @@
 const tableBody = document.querySelector('#bulkTable tbody');
 const summary = document.getElementById('summary');
 const operatorInput = document.getElementById('operatorName');
+const filterInput = document.getElementById('filterCalls');
 const submitButton = document.getElementById('submitRows');
 
 const bands = ['160m', '80m', '40m', '20m', '15m', '10m', '23cm'];
@@ -12,29 +13,48 @@ function localDateTimeValue(date = new Date()) {
     return local.toISOString().slice(0, 16);
 }
 
-function options(values, selected) {
-    return values.map(value =>
-        `<option value="${value}"${value === selected ? ' selected' : ''}>${value}</option>`
-    ).join('');
+function options(values) {
+    return values.map(value => `<option value="${value}">${value}</option>`).join('');
 }
 
-function addRow(values = {}) {
+function addRow(values = {}, id = null) {
     const row = document.createElement('tr');
+    row.dataset.existing = id == null ? 'false' : 'true';
+    row.dataset.dirty = id == null ? 'true' : 'false';
+    if (id != null) row.dataset.id = String(id);
+
     row.innerHTML = `
-        <td><input class="form-control qso-time" type="datetime-local" value="${values.time || localDateTimeValue()}" required></td>
-        <td><input class="form-control callsign" type="text" value="${values.callsign || ''}" required></td>
-        <td><select class="form-select band">${options(bands, values.band || '40m')}</select></td>
-        <td><select class="form-select mode">${options(modes, values.mode || 'SSB')}</select></td>
-        <td><input class="form-control sent-report" type="text" value="${values.sentReport || defaultSentReport}"></td>
-        <td><input class="form-control rx-report" type="text" value="${values.rxReport || ''}"></td>
-        <td><input class="form-control comments" type="text" value="${values.comments || ''}"></td>
+        <td><input class="form-control qso-time" type="datetime-local" required></td>
+        <td><input class="form-control callsign" type="text" required></td>
+        <td><select class="form-select band">${options(bands)}</select></td>
+        <td><select class="form-select mode">${options(modes)}</select></td>
+        <td><input class="form-control sent-report" type="text"></td>
+        <td><input class="form-control rx-report" type="text"></td>
+        <td><input class="form-control comments" type="text"></td>
         <td class="text-center"><input class="form-check-input non-contest" type="checkbox"></td>
         <td class="text-center"><input class="form-check-input qsl-requested" type="checkbox"></td>
         <td class="result-cell text-muted"></td>
-        <td><button class="btn btn-sm btn-outline-danger remove-row" type="button">Remove</button></td>
+        <td><button class="btn btn-sm btn-outline-danger remove-row" type="button"></button></td>
     `;
+
+    const parsedTime = values.time ? new Date(values.time) : new Date();
+    row.querySelector('.qso-time').value = Number.isNaN(parsedTime.getTime())
+        ? ''
+        : localDateTimeValue(parsedTime);
+    row.querySelector('.callsign').value = values.callsign || '';
+    row.querySelector('.band').value = values.band || '40m';
+    row.querySelector('.mode').value = values.mode || 'SSB';
+    row.querySelector('.sent-report').value = values.sentReport || defaultSentReport;
+    row.querySelector('.rx-report').value = values.rxReport || '';
+    row.querySelector('.comments').value = values.comments || '';
+    row.querySelector('.non-contest').checked = Boolean(Number(values.isNonContest));
+    row.querySelector('.qsl-requested').checked = Boolean(Number(values.qslCardRequested));
+    row.querySelector('.result-cell').textContent = id == null ? 'New row' : 'Saved QSO';
+    row.querySelector('.remove-row').textContent = id == null ? 'Remove' : 'Delete';
+
     tableBody.appendChild(row);
-    row.querySelector('.callsign').focus();
+    applyFilter();
+    return row;
 }
 
 function rowData(row) {
@@ -49,18 +69,19 @@ function rowData(row) {
         rxReport: row.querySelector('.rx-report').value.trim(),
         comments: row.querySelector('.comments').value.trim(),
         isNonContest: row.querySelector('.non-contest').checked,
-        qslCardRequested: row.querySelector('.qsl-requested').checked
+        qslCardRequested: row.querySelector('.qsl-requested').checked,
+        operatorName: operatorInput.value.trim()
     };
 }
 
 function markSaved(row, id) {
-    row.dataset.saved = 'true';
+    row.dataset.existing = 'true';
+    row.dataset.dirty = 'false';
+    row.dataset.id = String(id);
     row.classList.remove('table-danger');
     row.classList.add('table-success');
     row.querySelector('.result-cell').textContent = `Saved as QSO #${id}`;
-    row.querySelectorAll('input, select').forEach(control => {
-        control.disabled = true;
-    });
+    row.querySelector('.remove-row').textContent = 'Delete';
 }
 
 function markRejected(row, message) {
@@ -69,12 +90,102 @@ function markRejected(row, message) {
     row.querySelector('.result-cell').textContent = message || 'Not saved';
 }
 
-document.getElementById('addRow').addEventListener('click', () => addRow());
+function applyFilter() {
+    const query = filterInput.value.trim().toUpperCase();
+    Array.from(tableBody.rows).forEach(row => {
+        const callsign = row.querySelector('.callsign').value.toUpperCase();
+        const comments = row.querySelector('.comments').value.toUpperCase();
+        row.style.display = !query || callsign.includes(query) || comments.includes(query) ? '' : 'none';
+    });
+}
 
-tableBody.addEventListener('click', event => {
+async function loadRows() {
+    summary.className = 'mt-3 alert alert-info';
+    summary.textContent = 'Loading saved QSOs…';
+
+    try {
+        const [qsoResponse, settingsResponse] = await Promise.all([
+            fetch('/log'),
+            fetch('/admin/yearsLicensed')
+        ]);
+        if (!qsoResponse.ok) throw new Error('Could not load saved QSOs');
+
+        const qsos = await qsoResponse.json();
+        if (settingsResponse.ok) {
+            const settings = await settingsResponse.json();
+            if (settings.success) {
+                defaultSentReport = `59${String(settings.value).padStart(3, '0')}`;
+            }
+        }
+
+        tableBody.innerHTML = '';
+        qsos.forEach(qso => addRow(qso, qso.id));
+        addRow();
+
+        summary.className = 'mt-3 alert alert-success';
+        summary.textContent = `Loaded ${qsos.length} saved QSO(s). Edit any row or add new ones below.`;
+    } catch (error) {
+        tableBody.innerHTML = '';
+        addRow();
+        summary.className = 'mt-3 alert alert-danger';
+        summary.textContent = error.message;
+    }
+}
+
+document.getElementById('addRow').addEventListener('click', () => {
+    const row = addRow();
+    row.querySelector('.callsign').focus();
+});
+
+filterInput.addEventListener('input', applyFilter);
+
+tableBody.addEventListener('input', event => {
+    const row = event.target.closest('tr');
+    if (!row) return;
+    if (row.dataset.existing === 'true') {
+        row.dataset.dirty = 'true';
+        row.classList.remove('table-success', 'table-danger');
+        row.querySelector('.result-cell').textContent = 'Unsaved changes';
+    }
+    applyFilter();
+});
+
+tableBody.addEventListener('change', event => {
+    const row = event.target.closest('tr');
+    if (!row) return;
+    if (row.dataset.existing === 'true') {
+        row.dataset.dirty = 'true';
+        row.classList.remove('table-success', 'table-danger');
+        row.querySelector('.result-cell').textContent = 'Unsaved changes';
+    }
+});
+
+tableBody.addEventListener('click', async event => {
     if (!event.target.classList.contains('remove-row')) return;
-    event.target.closest('tr').remove();
-    if (tableBody.rows.length === 0) addRow();
+    const row = event.target.closest('tr');
+
+    if (row.dataset.existing !== 'true') {
+        row.remove();
+        if (tableBody.rows.length === 0) addRow();
+        return;
+    }
+
+    const callsign = row.querySelector('.callsign').value || `QSO #${row.dataset.id}`;
+    if (!confirm(`Delete ${callsign} from the database?`)) return;
+
+    event.target.disabled = true;
+    try {
+        const operator = encodeURIComponent(operatorInput.value.trim());
+        const response = await fetch(`/log/${row.dataset.id}?operator=${operator}`, { method: 'DELETE' });
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(data.message || 'Delete failed');
+        row.remove();
+        summary.className = 'mt-3 alert alert-success';
+        summary.textContent = `${callsign} was deleted.`;
+    } catch (error) {
+        markRejected(row, error.message);
+        event.target.disabled = false;
+    }
 });
 
 operatorInput.value = localStorage.getItem('operatorName') || '';
@@ -83,68 +194,86 @@ operatorInput.addEventListener('input', () => {
 });
 
 submitButton.addEventListener('click', async () => {
-    const rows = Array.from(tableBody.rows).filter(row => row.dataset.saved !== 'true');
-    if (rows.length === 0) {
+    const changedRows = Array.from(tableBody.rows).filter(row =>
+        row.dataset.existing === 'true' && row.dataset.dirty === 'true'
+    );
+    const newRows = Array.from(tableBody.rows).filter(row => row.dataset.existing !== 'true');
+
+    if (changedRows.length === 0 && newRows.length === 0) {
         summary.className = 'mt-3 alert alert-info';
-        summary.textContent = 'There are no unsaved rows.';
+        summary.textContent = 'There are no new or changed rows.';
         return;
     }
 
-    rows.forEach(row => {
-        row.classList.remove('table-danger');
-        row.querySelector('.result-cell').textContent = 'Checking…';
-    });
-
+    let saved = 0;
+    let failed = 0;
     submitButton.disabled = true;
     summary.className = 'mt-3 alert alert-info';
-    summary.textContent = `Checking ${rows.length} row(s)…`;
+    summary.textContent = `Saving ${changedRows.length + newRows.length} row(s)…`;
 
-    try {
-        const response = await fetch('/log/bulk', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                operatorName: operatorInput.value.trim(),
-                qsos: rows.map(rowData)
-            })
-        });
-        const data = await response.json();
-
-        if (!response.ok || !Array.isArray(data.results)) {
-            throw new Error(data.message || 'The server could not process the rows');
+    for (const row of changedRows) {
+        row.querySelector('.result-cell').textContent = 'Checking…';
+        try {
+            const response = await fetch(`/log/${row.dataset.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(rowData(row))
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.message || 'Update failed');
+            markSaved(row, row.dataset.id);
+            saved++;
+        } catch (error) {
+            markRejected(row, error.message);
+            failed++;
         }
+    }
 
-        data.results.forEach(result => {
-            const row = rows[result.index];
-            if (!row) return;
-            if (result.success) markSaved(row, result.id);
-            else markRejected(row, result.message);
+    if (newRows.length > 0) {
+        newRows.forEach(row => {
+            row.querySelector('.result-cell').textContent = 'Checking…';
         });
 
-        summary.className = data.failed === 0
-            ? 'mt-3 alert alert-success'
-            : 'mt-3 alert alert-warning';
-        summary.textContent = `Saved ${data.saved} row(s); ${data.failed} row(s) need attention.`;
+        try {
+            const response = await fetch('/log/bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    operatorName: operatorInput.value.trim(),
+                    qsos: newRows.map(rowData)
+                })
+            });
+            const data = await response.json();
+            if (!response.ok || !Array.isArray(data.results)) {
+                throw new Error(data.message || 'The server could not process the new rows');
+            }
 
-        if (data.failed === 0) addRow();
-    } catch (error) {
-        rows.forEach(row => markRejected(row, error.message));
-        summary.className = 'mt-3 alert alert-danger';
-        summary.textContent = 'Nothing was saved: ' + error.message;
-    } finally {
-        submitButton.disabled = false;
+            data.results.forEach(result => {
+                const row = newRows[result.index];
+                if (!row) return;
+                if (result.success) {
+                    markSaved(row, result.id);
+                    saved++;
+                } else {
+                    markRejected(row, result.message);
+                    failed++;
+                }
+            });
+        } catch (error) {
+            newRows.forEach(row => markRejected(row, error.message));
+            failed += newRows.length;
+        }
     }
+
+    if (!Array.from(tableBody.rows).some(row => row.dataset.existing !== 'true')) {
+        addRow();
+    }
+
+    summary.className = failed === 0
+        ? 'mt-3 alert alert-success'
+        : 'mt-3 alert alert-warning';
+    summary.textContent = `Saved ${saved} row(s); ${failed} row(s) need attention.`;
+    submitButton.disabled = false;
 });
 
-fetch('/admin/yearsLicensed')
-    .then(response => response.json())
-    .then(data => {
-        if (!data.success) return;
-        defaultSentReport = `59${String(data.value).padStart(3, '0')}`;
-        tableBody.querySelectorAll('.sent-report').forEach(input => {
-            if (!input.value) input.value = defaultSentReport;
-        });
-    })
-    .catch(() => {});
-
-addRow();
+loadRows();
