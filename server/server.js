@@ -591,7 +591,7 @@ app.put('/log/:id', (req, res) => {
     const id = parseInt(req.params.id);
     console.log('🛠 Editing QSO ID:', id);
 
-    const { callsign, band, mode, sentReport, rxReport, isNonContest, comments, qslCardRequested } = req.body;
+    const { callsign, band, mode, sentReport, rxReport, isNonContest, comments, qslCardRequested, time } = req.body;
     const qslCardRequestedValue = qslCardRequested ? 1 : 0;
 
     db.get(`SELECT time FROM qsos WHERE id = ?`, [id], (err, row) => {
@@ -601,12 +601,15 @@ app.put('/log/:id', (req, res) => {
         }
 
         const originalTime = row.time;
-        const parsedTime = new Date(originalTime);
+        const parsedTime = time ? new Date(time) : new Date(originalTime);
+        if (Number.isNaN(parsedTime.getTime())) {
+            return res.status(400).json({ success: false, message: 'Invalid QSO date or time' });
+        }
+        const timeStr = parsedTime.toISOString();
         console.log('⚙️ validateQSO called with excludeId:', id);
 
         validateQSO(callsign, band, mode, parsedTime, id, db, ({ valid, points, message }) => {
             console.log('🔍 validateQSO result:', { valid, points, message });
-            // ✅ SKIP validation entirely when editing a QSO
             const finalPoints = parseInt(isNonContest) === 1 ? 0 : calculatePoints(band, mode, parsedTime);
 
             if (!valid) {
@@ -615,7 +618,8 @@ app.put('/log/:id', (req, res) => {
 
             db.run(
                 `UPDATE qsos SET 
-        callsign = ?, 
+        callsign = ?,
+        time = ?,
         band = ?, 
         mode = ?, 
         sentReport = ?, 
@@ -625,7 +629,7 @@ app.put('/log/:id', (req, res) => {
         comments = ?,
         qslCardRequested = ?
     WHERE id = ?`,
-                [callsign, band, mode, sentReport, rxReport, finalPoints, isNonContest, comments, qslCardRequestedValue, id],
+                [callsign, timeStr, band, mode, sentReport, rxReport, finalPoints, isNonContest, comments, qslCardRequestedValue, id],
                 function (err) {
                     if (err) {
                         console.error('Update error:', err.message);
@@ -635,6 +639,7 @@ app.put('/log/:id', (req, res) => {
                     logUserAction(req.body.operatorName || 'anonymous', 'Edit QSO', {
                         id,
                         callsign,
+                        time: timeStr,
                         band,
                         mode,
                         sentReport,
@@ -643,7 +648,8 @@ app.put('/log/:id', (req, res) => {
                         comments,
                         qslCardRequested: qslCardRequestedValue
                     });
-                    res.json({ success: true });
+                    io.emit('newQSO', {});
+                    res.json({ success: true, id });
                 }
             );
 
