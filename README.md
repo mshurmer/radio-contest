@@ -34,6 +34,8 @@ npm install
 - Flag non-contest stations and add operator comments
 - Admin panel to configure "Years Licensed"
 - Built-in time and band/mode duplicate checking
+- Dedicated bulk-entry page for historical QSOs recorded on paper
+- Per-row bulk validation with clear saved or rejected results
 
 ---
 
@@ -62,10 +64,14 @@ cd radio-contest
 
 npm install
 
-3. Start the server:
+3. Configure local settings:
+
+Copy `.env.example` to `.env` and set strong passwords and a long random dump token. Set `REQUIRE_LOGIN=true` if the web interface should require a login.
+
+4. Start the server:
 node server/server.js
 
-4. Open your browser:
+5. Open your browser:
 http://localhost:3000
 
 📁 Folder Structure

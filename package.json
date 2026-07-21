@@ -1,9 +1,10 @@
 {
   "name": "radio-contest-logger",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "main": "server/server.js",
   "scripts": {
-    "start": "node server/server.js"
+    "start": "node server/server.js",
+    "test": "node --check server/server.js && node --check public/app.js && node --check public/bulk-entry.js && node --test"
   },
   "dependencies": {
     "basic-auth": "^2.0.1",

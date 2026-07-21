@@ -8,8 +8,9 @@
 
 function validateQSO(callsign, band, mode, time, excludeId, db, callback) {
     const threeHoursAgo = new Date(time.getTime() - 3 * 60 * 60 * 1000).toISOString();
-    const query = `SELECT * FROM qsos WHERE band = ? AND mode = ? AND time > ?`;
-    const params = [band, mode, threeHoursAgo];
+    const threeHoursAfter = new Date(time.getTime() + 3 * 60 * 60 * 1000).toISOString();
+    const query = `SELECT * FROM qsos WHERE band = ? AND mode = ? AND time > ? AND time < ?`;
+    const params = [band, mode, threeHoursAgo, threeHoursAfter];
 
     console.log('🧩 excludeId passed in:', excludeId, 'as type:', typeof excludeId);
     console.log('💬 SQL:', query, params);
