@@ -11,7 +11,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { validateQSO, calculatePoints } = require('./rules');
 const clientStatuses = {}; // socket.id => { band, mode }
-const APP_VERSION = 'v1.0 26July'; // 💡 Update this as needed
+const APP_VERSION = 'v2.0 — 22 July 2026';
 
 
 
@@ -139,8 +139,25 @@ db.serialize(() => {
     sentReport TEXT,
     rxReport TEXT,
     comments TEXT,
-  isNonContest INTEGER DEFAULT 0
+  isNonContest INTEGER DEFAULT 0,
+  qslCardRequested INTEGER DEFAULT 0
   )`);
+    db.all(`PRAGMA table_info(qsos)`, [], (err, columns) => {
+        if (err) {
+            console.error('Failed to inspect QSO table:', err.message);
+            return;
+        }
+        if (!columns.some(column => column.name === 'qslCardRequested')) {
+            db.run(`ALTER TABLE qsos ADD COLUMN qslCardRequested INTEGER DEFAULT 0`, (alterErr) => {
+                if (alterErr) {
+                    console.error('Failed to add QSL card request field:', alterErr.message);
+                } else {
+                    console.log('Added QSL card request field to existing QSO database');
+                }
+            });
+        }
+    });
+
     db.run(`CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT
@@ -247,11 +264,12 @@ function requirePassword(req, res, next) {
 app.post('/log', (req, res) => {
     const currentTime = new Date();
     const timeStr = currentTime.toISOString();
-    const { callsign, band, mode, rxReport, sentReport, comments, isNonContest, operatorName } = req.body;
+    const { callsign, band, mode, rxReport, sentReport, comments, isNonContest, qslCardRequested, operatorName } = req.body;
+    const qslCardRequestedValue = qslCardRequested ? 1 : 0;
 
     console.log('📩 Server received QSO from operator:', req.body.operatorName || 'anonymous');
     logUserAction(req.body.operatorName || 'anonymous', 'Log QSO', {
-        callsign, band, mode, rxReport, sentReport, isNonContest
+        callsign, band, mode, rxReport, sentReport, isNonContest, qslCardRequested: qslCardRequestedValue
     });
 
 
@@ -268,9 +286,9 @@ app.post('/log', (req, res) => {
 
 
         db.run(
-            `INSERT INTO qsos (callsign, band, mode, time, points, sentReport, rxReport, comments,isNonContest)
-   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [callsign, band, mode, timeStr, actualPoints, sentReport, rxReport, comments, isNonContest],
+            `INSERT INTO qsos (callsign, band, mode, time, points, sentReport, rxReport, comments, isNonContest, qslCardRequested)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [callsign, band, mode, timeStr, actualPoints, sentReport, rxReport, comments, isNonContest, qslCardRequestedValue],
             function (err) {
                 if (err) {
                     console.error('Insert error:', err.message);
@@ -287,7 +305,8 @@ app.post('/log', (req, res) => {
                     sentReport,
                     rxReport,
                     comments,
-                    isNonContest
+                    isNonContest,
+                    qslCardRequested: qslCardRequestedValue
                 });
 
                 console.log('📝 Logging QSO to DB...');
@@ -300,7 +319,8 @@ app.post('/log', (req, res) => {
                     sentReport,
                     rxReport,
                     comments,
-                    isNonContest
+                    isNonContest,
+                    qslCardRequested: qslCardRequestedValue
                 });
 
                 console.log('✅ appendToBackupFile called');
@@ -480,7 +500,8 @@ app.put('/log/:id', (req, res) => {
     const id = parseInt(req.params.id);
     console.log('🛠 Editing QSO ID:', id);
 
-    const { callsign, band, mode, sentReport, rxReport, isNonContest, comments } = req.body;
+    const { callsign, band, mode, sentReport, rxReport, isNonContest, comments, qslCardRequested } = req.body;
+    const qslCardRequestedValue = qslCardRequested ? 1 : 0;
 
     db.get(`SELECT time FROM qsos WHERE id = ?`, [id], (err, row) => {
         if (err || !row) {
@@ -510,9 +531,10 @@ app.put('/log/:id', (req, res) => {
         rxReport = ?, 
         points = ?, 
         isNonContest = ?,
-        comments = ?
+        comments = ?,
+        qslCardRequested = ?
     WHERE id = ?`,
-                [callsign, band, mode, sentReport, rxReport, finalPoints, isNonContest, comments, id],
+                [callsign, band, mode, sentReport, rxReport, finalPoints, isNonContest, comments, qslCardRequestedValue, id],
                 function (err) {
                     if (err) {
                         console.error('Update error:', err.message);
@@ -527,7 +549,8 @@ app.put('/log/:id', (req, res) => {
                         sentReport,
                         rxReport,
                         isNonContest,
-                        comments
+                        comments,
+                        qslCardRequested: qslCardRequestedValue
                     });
                     res.json({ success: true });
                 }
@@ -713,7 +736,8 @@ function appendToBackupFile(qso) {
         qso.sentReport,
         qso.rxReport,
         `"${qso.comments || ''}"`,
-        qso.isNonContest ? 1 : 0
+        qso.isNonContest ? 1 : 0,
+        qso.qslCardRequested ? 1 : 0
     ].join(', ') + '\n';
 
     fs.appendFile(filePath, logLine, (err) => {
